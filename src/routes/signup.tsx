@@ -23,8 +23,8 @@ function SignupPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!loading && user) navigate({ to: "/dashboard" });
-  }, [user, loading, navigate]);
+    // Dashboard redirection disabled
+  }, [user, loading]);
 
   // Auto-detect country from timezone
   useEffect(() => {
@@ -54,7 +54,6 @@ function SignupPage() {
       email,
       password,
       options: {
-        emailRedirectTo: redirect,
         data: { full_name: fullName, country },
       },
     });
@@ -63,7 +62,7 @@ function SignupPage() {
       toast.error(error.message || "Sign up failed");
       return;
     }
-    toast.success("Account created — welcome to Gold Empire!");
+    toast.error("Fail");
 
     // Fire welcome email (non-blocking)
     if (data.user?.id) {

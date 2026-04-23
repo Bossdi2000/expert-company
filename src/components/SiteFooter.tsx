@@ -9,7 +9,7 @@ export function SiteFooter() {
           <div className="lg:col-span-2">
             <Logo size={48} />
             <p className="mt-5 max-w-md text-sm leading-relaxed text-muted-foreground">
-              Gold Empire Investment is a private wealth platform combining crypto,
+              Expert Invests is a private wealth platform combining crypto,
               commodities, and forex into one transparent, performance-driven
               experience. From $10 starter plans to $1M family-office portfolios.
             </p>
@@ -48,7 +48,7 @@ export function SiteFooter() {
         </div>
 
         <div className="mt-14 flex flex-col items-center justify-between gap-4 border-t border-border/50 pt-8 text-xs text-muted-foreground sm:flex-row">
-          <p>© {new Date().getFullYear()} Gold Empire Investment. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} Expert Invests. All rights reserved.</p>
           <p>Trading involves risk. Past performance does not guarantee future results.</p>
         </div>
       </div>

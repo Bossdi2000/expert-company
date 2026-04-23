@@ -46,7 +46,7 @@ export function AdminShell() {
             <Logo size={36} withText={false} />
             <div className="hidden sm:block">
               <div className="text-xs uppercase tracking-[0.25em] text-primary">Admin Console</div>
-              <div className="font-display text-sm">Gold Empire HQ</div>
+              <div className="font-display text-sm">Expert HQ</div>
             </div>
           </Link>
 

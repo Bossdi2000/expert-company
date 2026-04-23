@@ -22,7 +22,7 @@ export function ContactSection() {
 
             <div className="mt-8 space-y-3">
               {[
-                { icon: Mail, t: "concierge@goldempire.invest" },
+                { icon: Mail, t: "support@expertinvests.com" },
                 { icon: Phone, t: "+44 20 7946 1058" },
                 { icon: MapPin, t: "30 St Mary Axe, London EC3A 8BF" },
               ].map((c) => (

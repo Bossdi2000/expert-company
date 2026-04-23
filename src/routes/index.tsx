@@ -9,6 +9,8 @@ import { RoiSection } from "@/components/landing/RoiSection";
 import { AboutSection } from "@/components/landing/AboutSection";
 import { TeamSection } from "@/components/landing/TeamSection";
 import { ContactSection } from "@/components/landing/ContactSection";
+import { LiveChartsSection } from "@/components/landing/LiveChartsSection";
+import { InvestorsSection } from "@/components/landing/InvestorsSection";
 import { LiveInvestmentToasts } from "@/components/LiveInvestmentToasts";
 
 export const Route = createFileRoute("/")({
@@ -41,6 +43,8 @@ function LandingPage() {
         <PlansSection />
         <HowItWorks />
         <RoiSection />
+        <LiveChartsSection />
+        <InvestorsSection />
         <AboutSection />
         <TeamSection />
         <ContactSection />

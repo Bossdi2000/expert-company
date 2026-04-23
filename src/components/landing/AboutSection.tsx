@@ -14,7 +14,7 @@ export function AboutSection() {
                 { v: "84k+", l: "Active investors" },
                 { v: "99.97%", l: "Uptime SLA" },
               ].map((s) => (
-                <div key={s.l} className="rounded-3xl border border-border/60 bg-card/60 p-7 backdrop-blur">
+                <div key={s.l} className="rounded-3xl border border-border/60 bg-card/60 p-7 backdrop-blur shadow-flash-emerald">
                   <div className="font-display text-4xl text-gradient-gold">{s.v}</div>
                   <div className="mt-2 text-xs uppercase tracking-wider text-muted-foreground">{s.l}</div>
                 </div>
@@ -29,8 +29,8 @@ export function AboutSection() {
               <br />measured in gold.
             </h2>
             <p className="mt-5 text-muted-foreground">
-              Founded by ex-Goldman traders and crypto-native quants, Gold Empire
-              Investment marries old-world commodity discipline with the velocity
+              Founded by ex-Goldman traders and crypto-native quants, Expert
+              Invests marries old-world commodity discipline with the velocity
               of digital assets. We trade so you don't have to.
             </p>
 

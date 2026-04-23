@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { motion } from "framer-motion";
 import { PLANS, formatCurrency } from "@/lib/mock-data";
 import { Crown, Check } from "lucide-react";
 
@@ -29,10 +30,11 @@ export function PlansSection() {
         </div>
 
         <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {PLANS.map((p) => (
-            <div
+          {PLANS.map((p, idx) => (
+            <motion.div
               key={p.id}
-              className="group relative overflow-hidden rounded-3xl border border-border/60 bg-card/60 p-6 backdrop-blur transition-all hover:-translate-y-1 hover:border-primary/50 hover:shadow-gold"
+              whileHover={{ scale: 1.02 }}
+              className="group relative overflow-hidden rounded-3xl border border-border/60 bg-card/60 p-6 backdrop-blur transition-all hover:border-primary/50 shadow-flash-emerald"
             >
               <div className={`absolute inset-x-0 top-0 h-32 bg-gradient-to-b ${ACCENT_RING[p.accent]} opacity-60`} />
               <div className="relative">
@@ -70,7 +72,7 @@ export function PlansSection() {
                   Invest in {p.name}
                 </Link>
               </div>
-            </div>
+            </motion.div>
           ))}
         </div>
       </div>

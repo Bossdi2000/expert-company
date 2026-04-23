@@ -42,7 +42,7 @@ export function RoiSection() {
             </div>
           </div>
 
-          <div className="rounded-3xl glass p-8 shadow-emerald">
+          <div className="rounded-3xl glass p-8 shadow-flash-emerald">
             <div className="text-xs uppercase tracking-wider text-muted-foreground">ROI Calculator</div>
             <div className="mt-1 font-display text-2xl text-gradient-gold">Estimate your earnings</div>
 

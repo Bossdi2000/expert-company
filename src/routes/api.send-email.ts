@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 const RESEND_URL = "https://api.resend.com/emails";
-const FROM = "Gold Empire Investment <onboarding@resend.dev>";
+const FROM = "Expert Invests <onboarding@resend.dev>";
 const BRAND = "#0d7a5f"; // Emerald Prestige primary
 
 type EmailKind =
@@ -27,14 +27,14 @@ const layout = (title: string, body: string) => `
 <!doctype html><html><body style="margin:0;background:#f6f7f5;font-family:Inter,system-ui,sans-serif;color:#0f1b1a;">
   <div style="max-width:560px;margin:0 auto;padding:32px 20px;">
     <div style="text-align:center;margin-bottom:24px;">
-      <div style="font-size:13px;letter-spacing:0.3em;color:${BRAND};text-transform:uppercase;font-weight:700;">Gold Empire Investment</div>
+      <div style="font-size:13px;letter-spacing:0.3em;color:${BRAND};text-transform:uppercase;font-weight:700;">Expert Invests</div>
     </div>
     <div style="background:#ffffff;border:1px solid #e6ece9;border-radius:24px;padding:32px;">
       <h1 style="margin:0 0 16px;font-size:22px;font-weight:700;color:#0f1b1a;">${title}</h1>
       ${body}
     </div>
     <p style="margin:24px 0 0;text-align:center;font-size:11px;color:#7a8784;">
-      You're receiving this because you have an account at Gold Empire Investment.
+      You're receiving this because you have an account at Expert Invests.
     </p>
   </div>
 </body></html>`;
@@ -134,11 +134,11 @@ export const Route = createFileRoute("/api/send-email")({
                 sends.push(
                   sendResend({
                     to: userEmail,
-                    subject: "Welcome to Gold Empire Investment",
+                    subject: "Welcome to Expert Invests",
                     html: layout(
                       "Welcome aboard 👑",
                       `<p style="font-size:14px;line-height:1.6;color:#3a4744;">${greet}</p>
-                       <p style="font-size:14px;line-height:1.6;color:#3a4744;">Your Gold Empire Investment account is live. Start by funding your wallet and pick a plan that fits your goals — from <b>Silver (3%/day)</b> all the way up to <b>Diamond (20%/day)</b>.</p>
+                       <p style="font-size:14px;line-height:1.6;color:#3a4744;">Your Expert Invests account is live. Start by funding your wallet and pick a plan that fits your goals — from <b>Silver (3%/day)</b> all the way up to <b>Diamond (20%/day)</b>.</p>
                        <p style="margin:24px 0;">${dashboardCta}</p>
                        <p style="font-size:12px;color:#7a8784;">If you have any questions, just reply to this email.</p>`,
                     ),

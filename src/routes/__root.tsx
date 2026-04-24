@@ -2,8 +2,6 @@ import { Outlet, Link, createRootRoute } from "@tanstack/react-router";
 import { AuthProvider } from "@/lib/auth";
 import { Toaster } from "@/components/ui/sonner";
 
-import appCss from "../styles.css?url";
-
 function NotFoundComponent() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -27,34 +25,6 @@ function NotFoundComponent() {
 }
 
 export const Route = createRootRoute({
-  head: () => ({
-    meta: [
-      { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Expert Invests — Premium Investment Platform" },
-      { name: "description", content: "Expert Invests — institutional-grade investment platform with daily ROI across crypto, gold, and forex markets." },
-      { name: "author", content: "Expert Invests" },
-      { property: "og:title", content: "Expert Invests" },
-      { property: "og:description", content: "Institutional-grade investment platform with daily ROI." },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
-      { name: "twitter:site", content: "@ExpertInvests" },
-      { name: "twitter:title", content: "Expert Invests" },
-      { name: "twitter:description", content: "Institutional-grade investment platform with daily ROI." },
-    ],
-    links: [
-      { rel: "preconnect", href: "https://fonts.googleapis.com" },
-      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      {
-        rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700;800&family=DM+Sans:wght@300;400;500;600;700&display=swap",
-      },
-      {
-        rel: "stylesheet",
-        href: appCss,
-      },
-    ],
-  }),
   component: RootComponent,
   notFoundComponent: NotFoundComponent,
 });

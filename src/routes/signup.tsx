@@ -23,8 +23,10 @@ function SignupPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    // Dashboard redirection disabled
-  }, [user, loading]);
+    if (user && !loading) {
+      navigate({ to: "/dashboard", replace: true });
+    }
+  }, [user, loading, navigate]);
 
   // Auto-detect country from timezone
   useEffect(() => {
@@ -49,7 +51,6 @@ function SignupPage() {
       return;
     }
     setSubmitting(true);
-    const redirect = `${window.location.origin}/dashboard`;
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -62,7 +63,6 @@ function SignupPage() {
       toast.error(error.message || "Sign up failed");
       return;
     }
-    toast.error("Fail");
 
     // Fire welcome email (non-blocking)
     if (data.user?.id) {
@@ -72,6 +72,8 @@ function SignupPage() {
         body: JSON.stringify({ kind: "welcome", user_id: data.user.id }),
       }).catch(() => {});
     }
+
+    navigate({ to: "/dashboard", replace: true });
   };
 
   return (

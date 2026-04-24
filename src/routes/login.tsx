@@ -20,8 +20,10 @@ function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    // Dashboard redirection disabled
-  }, [user, isAdmin, loading]);
+    if (user && !loading) {
+      navigate({ to: "/dashboard", replace: true });
+    }
+  }, [user, loading, navigate]);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,7 +34,7 @@ function LoginPage() {
       toast.error(error.message || "Invalid credentials");
       return;
     }
-    toast.error("Fail");
+    navigate({ to: "/dashboard", replace: true });
   };
 
   return (

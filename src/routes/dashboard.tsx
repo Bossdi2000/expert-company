@@ -1,16 +1,7 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { createFileRoute } from "@tanstack/react-router";
+import { DashboardShell } from "@/components/DashboardShell";
 
 export const Route = createFileRoute("/dashboard")({
-  head: () => ({ meta: [{ title: "Dashboard Disabled — Expert Invests" }] }),
-  component: DashboardDisabled,
+  head: () => ({ meta: [{ title: "Dashboard — Gold Empire Investment" }] }),
+  component: DashboardShell,
 });
-
-function DashboardDisabled() {
-  const navigate = useNavigate();
-  useEffect(() => {
-    // Redirect to home since dashboard is disabled
-    navigate({ to: "/" });
-  }, [navigate]);
-  return null;
-}

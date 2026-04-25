@@ -1,12 +1,13 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
-import { supabase } from "@/integrations/supabase/client";
 
-type Profile = {
+export type Profile = {
   id: string;
-  full_name: string | null;
-  email: string | null;
-  country: string | null;
+  email: string;
+  full_name?: string;
+  username?: string;
+  country?: string;
+  phone?: string;
   balance: number;
   total_invested: number;
   total_profit: number;
@@ -21,9 +22,12 @@ type AuthContextValue = {
   loading: boolean;
   refreshProfile: () => Promise<void>;
   signOut: () => Promise<void>;
+  mockLogin: (email: string, fullName?: string, country?: string) => void;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+
+const MOCK_USER_ID = "mock-user-123";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -32,61 +36,69 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const loadUserData = async (uid: string) => {
-    const [{ data: prof }, { data: roles }] = await Promise.all([
-      supabase.from("profiles").select("*").eq("id", uid).maybeSingle(),
-      supabase.from("user_roles").select("role").eq("user_id", uid),
-    ]);
-    setProfile(prof as Profile | null);
-    setIsAdmin(!!roles?.some((r) => r.role === "admin"));
+  const loadUserData = async () => {
+    // Temporary mock data
+    const mockProfile: Profile = {
+      id: MOCK_USER_ID,
+      full_name: localStorage.getItem("mock_name") || "Demo User",
+      email: localStorage.getItem("mock_email") || "demo@example.com",
+      username: localStorage.getItem("mock_username") || "johndoe",
+      country: localStorage.getItem("mock_country") || "United States",
+      phone: localStorage.getItem("mock_phone") || "+1 555-0198",
+      balance: 150000,
+      total_invested: 50000,
+      total_profit: 12500,
+      custom_roi_bonus: 0,
+    };
+    setProfile(mockProfile);
+    setIsAdmin(false);
   };
 
   useEffect(() => {
-    let mounted = true;
-
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, sess) => {
-      if (!mounted) return;
-      setSession(sess);
-      setUser(sess?.user ?? null);
-      if (sess?.user) {
-        setTimeout(() => {
-          if (mounted) loadUserData(sess.user.id);
-        }, 0);
-      } else {
-        setProfile(null);
-        setIsAdmin(false);
-      }
-    });
-
-    supabase.auth.getSession().then(({ data: { session: sess } }) => {
-      if (!mounted) return;
-      setSession(sess);
-      setUser(sess?.user ?? null);
-      if (sess?.user) {
-        loadUserData(sess.user.id).finally(() => {
-          if (mounted) setLoading(false);
-        });
-      } else {
-        setLoading(false);
-      }
-    });
-
-    return () => {
-      mounted = false;
-      sub.subscription.unsubscribe();
-    };
+    // Check local storage for mock session
+    const isMockLoggedIn = localStorage.getItem("mock_logged_in") === "true";
+    
+    if (isMockLoggedIn) {
+      const mockUser = { id: MOCK_USER_ID, email: localStorage.getItem("mock_email") || "demo@example.com" } as User;
+      const mockSession = { user: mockUser } as Session;
+      
+      setSession(mockSession);
+      setUser(mockUser);
+      loadUserData().finally(() => setLoading(false));
+    } else {
+      setLoading(false);
+    }
   }, []);
 
   const refreshProfile = async () => {
-    if (user) await loadUserData(user.id);
+    if (user) await loadUserData();
   };
+
   const signOut = async () => {
-    await supabase.auth.signOut();
+    localStorage.removeItem("mock_logged_in");
+    setSession(null);
+    setUser(null);
+    setProfile(null);
+  };
+
+  const mockLogin = (email: string, fullName?: string, country?: string, phone?: string) => {
+    localStorage.setItem("mock_logged_in", "true");
+    localStorage.setItem("mock_email", email);
+    if (fullName) localStorage.setItem("mock_name", fullName);
+    if (country) localStorage.setItem("mock_country", country);
+    if (phone) localStorage.setItem("mock_phone", phone);
+    
+    const mockUser = { id: MOCK_USER_ID, email } as User;
+    const mockSession = { user: mockUser } as Session;
+    
+    setSession(mockSession);
+    setUser(mockUser);
+    loadUserData();
   };
 
   return (
     <AuthContext.Provider
-      value={{ session, user, profile, isAdmin, loading, refreshProfile, signOut }}
+      value={{ session, user, profile, isAdmin, loading, refreshProfile, signOut, mockLogin }}
     >
       {children}
     </AuthContext.Provider>
@@ -98,3 +110,4 @@ export function useAuth() {
   if (!ctx) throw new Error("useAuth must be used within AuthProvider");
   return ctx;
 }
+

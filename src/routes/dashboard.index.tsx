@@ -5,10 +5,8 @@ import {
 } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import { useAuth } from "@/lib/auth";
-import { supabase } from "@/integrations/supabase/client";
-import { DepositModal } from "@/components/dashboard/DepositModal";
-import { WithdrawModal } from "@/components/dashboard/WithdrawModal";
-import { ReinvestModal } from "@/components/dashboard/ReinvestModal";
+import { mockService, getProfitWithdrawn, getReferralBonus } from "@/lib/mock-service";
+import { motion } from "framer-motion";
 
 export const Route = createFileRoute("/dashboard/")({
   component: DashboardHome,
@@ -25,41 +23,86 @@ type Inv = {
   plans: { name: string } | null;
 };
 
+const stagger = {
+  visible: { transition: { staggerChildren: 0.1 } },
+};
+const fadeUp = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } },
+};
+
+// Animated Number Component
+function AnimatedNumber({ value, isCurrency = false }: { value: number; isCurrency?: boolean }) {
+  const [displayValue, setDisplayValue] = useState(0);
+
+  useEffect(() => {
+    let startTime: number;
+    const duration = 1000;
+    const startValue = 0;
+
+    const step = (timestamp: number) => {
+      if (!startTime) startTime = timestamp;
+      const progress = Math.min((timestamp - startTime) / duration, 1);
+      const easeProgress = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
+      setDisplayValue(startValue + (value - startValue) * easeProgress);
+
+      if (progress < 1) {
+        requestAnimationFrame(step);
+      } else {
+        setDisplayValue(value);
+      }
+    };
+
+    requestAnimationFrame(step);
+  }, [value]);
+
+  return <>{isCurrency ? formatCurrency(displayValue) : displayValue.toFixed(0)}</>;
+}
+
 function DashboardHome() {
   const { profile, user, refreshProfile } = useAuth();
-  const [modal, setModal] = useState<"deposit" | "withdraw" | "reinvest" | null>(null);
   const [investments, setInvestments] = useState<Inv[]>([]);
   const [loading, setLoading] = useState(true);
+  const [now, setNow] = useState(Date.now());
 
-  const load = async () => {
-    if (!user) return;
-    const { data } = await supabase
-      .from("investments")
-      .select("id, amount, daily_roi_pct, duration_days, started_at, ends_at, status, plans(name)")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
-    setInvestments((data as unknown as Inv[]) || []);
-    setLoading(false);
-  };
+  useEffect(() => {
+    const load = async () => {
+      if (!user) return;
+      const data = mockService.getInvestments();
+      setInvestments(data || []);
+      setLoading(false);
+    };
+    load();
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [user]);
 
-  useEffect(() => { load(); }, [user]);
+  const profitWithdrawn = getProfitWithdrawn();
+  const referralBonus = getReferralBonus();
 
-  const onAction = async () => {
-    setModal(null);
-    await refreshProfile();
-    await load();
-  };
-
-  const totalProfit = investments.reduce((sum, i) => {
-    const start = new Date(i.started_at).getTime();
-    const end = new Date(i.ends_at).getTime();
-    const elapsed = Math.max(0, (Math.min(Date.now(), end) - start) / 86400000);
-    return sum + (Number(i.amount) * Number(i.daily_roi_pct) / 100) * elapsed;
+  const totalSubscription = investments.reduce((sum, i) => {
+    if (i.status === "completed" || i.status === "pending") return sum;
+    return sum + i.amount;
   }, 0);
 
+  const dailyProfitExpected = investments.reduce((sum, i) => {
+    if (i.status === "completed" || i.status === "pending") return sum;
+    return sum + (i.amount * (i.daily_roi_pct / 100));
+  }, 0);
+
+  const totalProfit = investments.reduce((sum, i) => {
+    if (i.status === "pending") return sum;
+    const start = new Date(i.started_at).getTime();
+    const elapsedDays = Math.max(0, Math.floor((Date.now() - start) / 86400000));
+    return sum + (i.amount * (i.daily_roi_pct / 100) * elapsedDays);
+  }, 0) - profitWithdrawn;
+
+  const totalFund = totalSubscription + Math.max(0, totalProfit) + referralBonus;
+
   return (
-    <div className="space-y-8">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+
+    <motion.div initial="hidden" animate="visible" variants={stagger} className="space-y-8">
+      <motion.div variants={fadeUp} className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-[0.25em] text-primary">Welcome back</p>
           <h1 className="mt-1 font-display text-3xl lg:text-4xl">{profile?.full_name || "Investor"}</h1>
@@ -67,123 +110,151 @@ function DashboardHome() {
             {profile?.country} · {profile?.email}
           </div>
         </div>
-        <div className="flex items-center gap-2 rounded-full border border-success/40 bg-success/10 px-3 py-1.5 text-xs text-success">
-          <ShieldCheck size={13} /> Account verified
+        <div className="flex items-center gap-2 rounded-full border border-success/40 bg-success/10 px-3 py-1.5 text-xs text-success shadow-[0_0_15px_-3px_oklch(0.72_0.17_150/20%)]">
+          <ShieldCheck size={13} className="animate-pulse" /> Account verified
         </div>
-      </div>
+      </motion.div>
 
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-emerald p-1 shadow-emerald">
-        <div className="rounded-[calc(1.5rem-4px)] bg-card/80 p-7 backdrop-blur-xl">
-          <div className="flex flex-wrap items-start justify-between gap-6">
+      <motion.div variants={fadeUp} className="relative overflow-hidden rounded-3xl bg-gradient-emerald p-1 shadow-emerald transition-shadow duration-500 hover:shadow-[0_30px_80px_-20px_oklch(0.48_0.14_165/60%)]">
+        <div className="rounded-[calc(1.5rem-4px)] glass p-7">
+          <div className="grid grid-cols-2 gap-6 sm:grid-cols-4">
             <div>
-              <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
-                <Sparkles size={12} className="text-primary" /> Total balance
+              <div className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-muted-foreground">
+                <Sparkles size={12} className="text-primary" /> Total Fund
               </div>
-              <div className="mt-2 font-display text-5xl text-gradient-gold lg:text-6xl">
-                {formatCurrency(profile?.balance ?? 0)}
-              </div>
-              <div className="mt-2 flex items-center gap-1.5 text-sm text-success">
-                <TrendingUp size={14} /> +{formatCurrency(totalProfit)} live profit
+              <div className="mt-2 font-display text-4xl text-gradient-gold lg:text-5xl">
+                {formatCurrency(totalFund)}
               </div>
             </div>
-
-            <div className="grid grid-cols-3 gap-3 sm:grid-cols-3">
-              <Stat label="Invested" value={formatCurrency(profile?.total_invested ?? 0)} />
-              <Stat label="Profit" value={formatCurrency(totalProfit)} positive />
-              <Stat label="Bonus ROI" value={`+${profile?.custom_roi_bonus ?? 0}%`} />
+            <div>
+              <div className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-muted-foreground">
+                Total Subscription
+              </div>
+              <div className="mt-2 font-display text-2xl lg:text-3xl text-foreground">
+                {formatCurrency(totalSubscription)}
+              </div>
             </div>
-          </div>
-
-          <div className="mt-7 grid grid-cols-3 gap-3">
-            <ActionButton onClick={() => setModal("deposit")} icon={ArrowDownToLine} label="Deposit" primary />
-            <ActionButton onClick={() => setModal("withdraw")} icon={ArrowUpToLine} label="Withdraw" />
-            <ActionButton onClick={() => setModal("reinvest")} icon={Repeat} label="Reinvest" />
+            <div>
+              <div className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-muted-foreground">
+                Total Profit
+              </div>
+              <div className="mt-2 font-display text-2xl lg:text-3xl text-success">
+                +{formatCurrency(Math.max(0, totalProfit))}
+              </div>
+            </div>
+            <div>
+              <div className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-muted-foreground">
+                Daily Profit
+              </div>
+              <div className="mt-2 font-display text-2xl lg:text-3xl text-success">
+                +{formatCurrency(dailyProfitExpected)}
+              </div>
+            </div>
           </div>
         </div>
-      </div>
+      </motion.div>
 
-      <section>
+      <motion.section variants={fadeUp} className="glass rounded-3xl p-4 overflow-hidden">
+        <div className="mb-4 flex justify-between items-end px-2">
+          <div>
+            <h2 className="font-display text-2xl">Market Overview</h2>
+            <p className="text-sm text-muted-foreground">Live crypto charts and analysis.</p>
+          </div>
+        </div>
+        <div className="h-[400px] w-full rounded-2xl overflow-hidden border border-border/50">
+          <iframe 
+            src="https://s.tradingview.com/widgetembed/?frameElementId=tradingview_123&symbol=BINANCE%3ABTCUSDT&interval=D&hidesidetoolbar=1&symboledit=1&saveimage=1&toolbarbg=f1f3f6&studies=%5B%5D&theme=dark&style=1&timezone=Etc%2FUTC&studies_overrides=%7B%7D&overrides=%7B%7D&enabled_features=%5B%5D&disabled_features=%5B%5D&locale=en"
+            width="100%" 
+            height="100%" 
+            frameBorder="0" 
+            allowTransparency={true} 
+            scrolling="no"
+          ></iframe>
+        </div>
+      </motion.section>
+
+      <motion.section variants={fadeUp}>
         <div className="flex items-end justify-between">
           <div>
             <h2 className="font-display text-2xl">Active investments</h2>
             <p className="text-sm text-muted-foreground">Your money working across markets.</p>
           </div>
-          <Link to="/dashboard/invest" className="text-sm font-semibold text-primary hover:underline">
+          <Link to="/dashboard/invest" className="text-sm font-semibold text-primary hover:underline transition-all">
             New investment →
           </Link>
         </div>
 
         {loading ? (
           <div className="mt-5 grid place-items-center py-10"><Loader2 className="animate-spin text-primary" /></div>
-        ) : investments.filter(i => i.status === "active").length === 0 ? (
-          <div className="mt-5 rounded-3xl border border-border/60 bg-card/40 p-10 text-center text-sm text-muted-foreground">
-            No active investments yet. <Link to="/dashboard/invest" className="text-primary font-semibold">Start your first plan →</Link>
-          </div>
+        ) : investments.length === 0 ? (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-5 glass rounded-3xl p-10 text-center text-sm text-muted-foreground">
+            No subscriptions yet. <Link to="/dashboard/invest" className="text-primary hover:underline">Start investing</Link>
+          </motion.div>
         ) : (
           <div className="mt-5 grid gap-4 lg:grid-cols-2">
-            {investments.filter((i) => i.status === "active").map((inv) => {
+            {investments.map((inv) => {
               const start = new Date(inv.started_at).getTime();
-              const elapsedDays = Math.max(0, (Date.now() - start) / 86400000);
-              const earned = (Number(inv.amount) * Number(inv.daily_roi_pct) / 100) * elapsedDays;
-              const progress = Math.min(100, (elapsedDays / inv.duration_days) * 100);
+              let elapsedDays = 0;
+              let countdown = "";
+              let earned = 0;
+              
+              if (inv.status !== "pending") {
+                const totalElapsedMs = now - start;
+                elapsedDays = Math.max(0, Math.floor(totalElapsedMs / 86400000));
+                earned = inv.amount * (inv.daily_roi_pct / 100) * elapsedDays;
+
+                const msToNext = 86400000 - (totalElapsedMs % 86400000);
+                const hrs = Math.floor(msToNext / 3600000).toString().padStart(2, "0");
+                const mins = Math.floor((msToNext % 3600000) / 60000).toString().padStart(2, "0");
+                const secs = Math.floor((msToNext % 60000) / 1000).toString().padStart(2, "0");
+                countdown = `${hrs}:${mins}:${secs}`;
+              }
+
               return (
-                <div key={inv.id} className="rounded-3xl border border-border/60 bg-card/60 p-6 backdrop-blur">
-                  <div className="flex items-center justify-between">
+                <motion.div 
+                  key={inv.id} 
+                  whileHover={{ scale: 1.02, y: -4 }}
+                  className={`glass rounded-3xl p-6 transition-all ${inv.status === "active" ? "shadow-flash-emerald border-emerald/30" : "hover:shadow-card hover:border-primary/30"}`}
+                >
+                  <div className="flex items-start justify-between">
                     <div>
-                      <div className="text-xs uppercase tracking-wider text-muted-foreground">{inv.plans?.name} plan</div>
+                      <div className="text-xs uppercase tracking-wider text-muted-foreground">{inv.plans?.name || "Plan"}</div>
                       <div className="mt-1 font-display text-2xl text-gradient-gold">{formatCurrency(inv.amount)}</div>
                     </div>
-                    <div className="rounded-full bg-success/15 px-3 py-1 text-xs font-semibold text-success">
-                      +{inv.daily_roi_pct}% / day
-                    </div>
+                    {inv.status === "pending" ? (
+                      <div className="rounded-full bg-accent px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Pending</div>
+                    ) : inv.status === "capital_withdrawal_requested" ? (
+                      <div className="rounded-full bg-warning/20 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-warning">Withdrawal Requested</div>
+                    ) : (
+                      <div className="rounded-full bg-success/20 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-success">Active</div>
+                    )}
                   </div>
-                  <div className="mt-5">
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>Earned so far</span>
-                      <span className="font-mono font-semibold text-success">+{formatCurrency(earned)}</span>
+
+                  {inv.status !== "pending" && (
+                    <div className="mt-6">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">Generated Profit</span>
+                        <span className="font-mono font-semibold text-success">+{formatCurrency(earned)}</span>
+                      </div>
+                      
+                      <div className="mt-4 grid grid-cols-2 gap-3">
+                        <div className="rounded-xl border border-border/50 bg-background/40 p-3">
+                          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Next Profit Drop</div>
+                          <div className="mt-1 font-mono text-sm font-semibold">{countdown}</div>
+                        </div>
+                        <div className="rounded-xl border border-border/50 bg-background/40 p-3">
+                          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Status</div>
+                          <div className="mt-1 text-sm font-semibold text-success">Running ({elapsedDays}d)</div>
+                        </div>
+                      </div>
                     </div>
-                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-background/60">
-                      <div className="h-full rounded-full bg-gradient-gold shimmer" style={{ width: `${progress}%` }} />
-                    </div>
-                    <div className="mt-1.5 flex justify-between text-[10px] uppercase tracking-wider text-muted-foreground">
-                      <span>Day {Math.floor(elapsedDays)} / {inv.duration_days}</span>
-                      <span>{progress.toFixed(0)}%</span>
-                    </div>
-                  </div>
-                </div>
+                  )}
+                </motion.div>
               );
             })}
           </div>
         )}
-      </section>
-
-      {modal === "deposit" && <DepositModal onClose={onAction} />}
-      {modal === "withdraw" && <WithdrawModal onClose={onAction} />}
-      {modal === "reinvest" && <ReinvestModal onClose={onAction} />}
-    </div>
-  );
-}
-
-function Stat({ label, value, positive }: { label: string; value: string; positive?: boolean }) {
-  return (
-    <div className="rounded-xl bg-background/40 px-3 py-2.5">
-      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
-      <div className={`mt-0.5 font-mono text-sm font-semibold ${positive ? "text-success" : ""}`}>{value}</div>
-    </div>
-  );
-}
-
-function ActionButton({ icon: Icon, label, onClick, primary }: { icon: typeof ArrowDownToLine; label: string; onClick: () => void; primary?: boolean }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`flex flex-col items-center gap-1.5 rounded-2xl py-4 text-xs font-semibold transition-transform hover:scale-[1.02] ${
-        primary
-          ? "bg-gradient-gold text-primary-foreground shadow-gold"
-          : "border border-border bg-background/50 text-foreground hover:border-primary"
-      }`}
-    >
-      <Icon size={20} /> {label}
-    </button>
+      </motion.section>
+    </motion.div>
   );
 }

@@ -1,9 +1,11 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import * as React from "react";
 import { useState, useEffect } from "react";
 import { Logo } from "@/components/Logo";
 import { CountryPicker } from "@/components/CountryPicker";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 
@@ -23,11 +25,12 @@ const stagger = {
 
 function SignupPage() {
   const navigate = useNavigate();
-  const { user, loading, mockLogin } = useAuth();
+  const { user, loading } = useAuth();
   const [show, setShow] = useState(false);
   const [country, setCountry] = useState("");
   const [phone, setPhone] = useState("");
   const [fullName, setFullName] = useState("");
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -62,15 +65,36 @@ function SignupPage() {
     }
     setSubmitting(true);
     
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    // Bypass Supabase and use mock login
-    mockLogin(email, fullName, country, phone);
-    
-    setSubmitting(false);
-    toast.success("Account created successfully");
-    navigate({ to: "/dashboard", replace: true });
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName,
+            username: username,
+            country: country,
+            phone: phone
+          }
+        }
+      });
+
+      if (error) {
+        toast.error(error.message);
+      } else {
+        if (data.session) {
+          toast.success("Account created successfully!");
+          navigate({ to: "/dashboard", replace: true });
+        } else {
+          toast.success("Account created! You can now sign in.");
+          navigate({ to: "/login", replace: true });
+        }
+      }
+    } catch (err: any) {
+      toast.error(err.message || "An error occurred");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -103,6 +127,17 @@ function SignupPage() {
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="John Doe"
+                  className={inputCls}
+                />
+              </Field>
+            </motion.div>
+            <motion.div variants={fadeUp}>
+              <Field label="Username">
+                <input
+                  required
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="johndoe"
                   className={inputCls}
                 />
               </Field>

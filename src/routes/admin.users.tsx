@@ -78,21 +78,23 @@ function AdminUsersPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="space-y-8 animate-in fade-in duration-500">
+      <div className="flex flex-wrap items-center justify-between gap-6">
         <div>
-          <h1 className="font-display text-3xl lg:text-4xl">Users</h1>
+          <h1 className="font-display text-3xl lg:text-4xl text-gradient-gold">Investor accounts</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {users.length} accounts on the platform.
+            Managing {users.length} registered investors on the platform.
           </p>
         </div>
-        <div className="flex items-center gap-2 rounded-full border border-border bg-card/60 px-4 py-2">
-          <Search size={14} className="text-muted-foreground" />
+        <div className="relative group">
+          <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+            <Search size={14} className="text-muted-foreground group-focus-within:text-primary transition-colors" />
+          </div>
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search name or email…"
-            className="w-56 bg-transparent text-sm outline-none"
+            placeholder="Search investors..."
+            className="w-full sm:w-72 rounded-2xl border border-white/5 bg-white/5 px-10 py-3 text-sm outline-none focus:border-primary transition-all"
           />
         </div>
       </div>
@@ -102,109 +104,136 @@ function AdminUsersPage() {
           <Loader2 className="animate-spin text-primary" />
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-3xl border border-border/60 bg-card/40 backdrop-blur">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border/50 bg-background/30 text-left text-[10px] uppercase tracking-wider text-muted-foreground">
-                <th className="px-5 py-3">Name</th>
-                <th className="px-5 py-3">Country</th>
-                <th className="px-5 py-3">Balance</th>
-                <th className="px-5 py-3">Invested</th>
-                <th className="px-5 py-3">ROI bonus</th>
-                <th className="px-5 py-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((u) => (
-                <tr key={u.id} className="border-b border-border/30 last:border-0 hover:bg-accent/20">
-                  <td className="px-5 py-4">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold">{u.full_name || "—"}</span>
-                      {adminIds.has(u.id) && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-primary">
-                          <ShieldCheck size={9} /> Admin
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-[11px] text-muted-foreground">{u.email}</div>
-                  </td>
-                  <td className="px-5 py-4 text-xs">{u.country || "—"}</td>
-                  <td className="px-5 py-4 font-mono text-sm font-semibold text-gradient-gold">
-                    {formatCurrency(u.balance)}
-                  </td>
-                  <td className="px-5 py-4 font-mono text-xs">{formatCurrency(u.total_invested)}</td>
-                  <td className="px-5 py-4 text-xs">+{u.custom_roi_bonus}%</td>
-                  <td className="px-5 py-4 text-right">
-                    <button
-                      onClick={() => setEditingId(u.id)}
-                      className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1 text-xs hover:border-primary hover:text-primary"
-                    >
-                      <Edit3 size={12} /> Manage
-                    </button>
-                    <button
-                      onClick={() => handleDelete(u.id)}
-                      className="ml-2 inline-flex items-center gap-1 rounded-full border border-border px-3 py-1 text-xs hover:border-destructive hover:text-destructive"
-                    >
-                      <Trash2 size={12} />
-                    </button>
-                  </td>
+        <div className="overflow-hidden rounded-[2rem] border border-white/5 bg-white/[0.02] backdrop-blur-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="border-b border-white/5 bg-white/[0.02] text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60">
+                  <th className="px-6 py-4">Investor Identity</th>
+                  <th className="px-6 py-4">Financial Status</th>
+                  <th className="px-6 py-4">ROI Perks</th>
+                  <th className="px-6 py-4 text-right">Administrative</th>
                 </tr>
-              ))}
-              {filtered.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-5 py-12 text-center text-sm text-muted-foreground">
-                    No users match your search.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {filtered.map((u) => (
+                  <tr key={u.id} className="group hover:bg-white/[0.01] transition-colors">
+                    <td className="px-6 py-5">
+                      <div className="flex items-center gap-3">
+                        <div className="grid h-10 w-10 place-items-center rounded-xl bg-white/5 text-muted-foreground uppercase font-display text-lg">
+                          {u.full_name?.[0] || "?"}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-white group-hover:text-primary transition-colors">
+                              {u.full_name || "Anonymous"}
+                            </span>
+                            {adminIds.has(u.id) && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-primary border border-primary/20">
+                                <ShieldCheck size={9} /> Master Admin
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-muted-foreground">{u.email}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-5">
+                      <div className="font-mono text-sm font-bold text-gradient-gold">
+                        {formatCurrency(u.balance)}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">
+                        Invested: {formatCurrency(u.total_invested)}
+                      </div>
+                    </td>
+                    <td className="px-6 py-5">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-bold text-white">+{u.custom_roi_bonus}%</span>
+                        <span className="text-[9px] text-muted-foreground uppercase tracking-wider">Bonus</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-5 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => setEditingId(u.id)}
+                          className="p-2 rounded-xl bg-white/5 text-muted-foreground hover:bg-primary/10 hover:text-primary border border-white/5 transition-all"
+                          title="Manage Account"
+                        >
+                          <Edit3 size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(u.id)}
+                          className="p-2 rounded-xl bg-white/5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive border border-white/5 transition-all"
+                          title="Delete Account"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {filtered.length === 0 && (
+            <div className="px-6 py-20 text-center text-sm text-muted-foreground italic">
+              No matching investor records found.
+            </div>
+          )}
         </div>
       )}
 
       {editUser && (
-        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-background/70 p-4 backdrop-blur sm:items-center">
+        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/80 p-4 backdrop-blur-md sm:items-center">
           <form
             onSubmit={handleSave}
-            className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-emerald animate-scale-in"
+            className="w-full max-w-md rounded-[2.5rem] border border-white/10 bg-[#050c0a] p-8 shadow-gold-lg animate-in zoom-in duration-300"
           >
-            <div className="flex items-center justify-between">
-              <h3 className="font-display text-2xl">Manage {editUser.full_name || "user"}</h3>
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h3 className="font-display text-2xl text-white">Modify Portfolio</h3>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">{editUser.full_name || editUser.email}</p>
+              </div>
               <button
                 type="button"
                 onClick={() => setEditingId(null)}
-                className="grid h-9 w-9 place-items-center rounded-full hover:bg-accent"
+                className="grid h-10 w-10 place-items-center rounded-full hover:bg-white/5 transition-colors"
               >
-                <X size={16} />
+                <X size={18} />
               </button>
             </div>
-            <div className="mt-5 space-y-4 text-sm">
-              <Row label="Account balance ($)">
+            
+            <div className="space-y-6">
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60 px-1">Adjustable Balance ($)</label>
                 <input
                   name="balance"
                   type="number"
                   step="0.01"
                   defaultValue={editUser.balance}
-                  className={iCls}
+                  className="mt-2 w-full rounded-2xl border border-white/5 bg-white/5 px-4 py-3.5 text-sm font-display outline-none focus:border-primary transition-all"
                 />
-              </Row>
-              <Row label="Custom ROI bonus (%)">
+              </div>
+              
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60 px-1">Loyalty ROI Bonus (%)</label>
                 <input
                   name="roi_bonus"
                   type="number"
                   step="0.1"
                   defaultValue={editUser.custom_roi_bonus}
-                  className={iCls}
+                  className="mt-2 w-full rounded-2xl border border-white/5 bg-white/5 px-4 py-3.5 text-sm font-display outline-none focus:border-primary transition-all"
                 />
-                <p className="mt-1 text-[10px] text-muted-foreground">
-                  Added on top of the plan's daily ROI for every new investment this user makes.
+                <p className="mt-3 text-[10px] text-muted-foreground leading-relaxed italic border-l-2 border-primary/20 pl-3">
+                  This bonus adds to the base ROI of all future investments initiated by this user.
                 </p>
-              </Row>
+              </div>
+
               <button
                 type="submit"
-                className="w-full rounded-full bg-gradient-gold py-2.5 text-sm font-semibold text-primary-foreground shadow-gold"
+                className="w-full rounded-2xl bg-gradient-gold py-4 text-[11px] font-bold uppercase tracking-[0.2em] text-primary-foreground shadow-gold hover:scale-[1.02] active:scale-95 transition-all"
               >
-                <Check size={14} className="-mt-0.5 mr-1 inline" /> Save changes
+                <Check size={14} className="inline mr-2" /> Commit Changes
               </button>
             </div>
           </form>

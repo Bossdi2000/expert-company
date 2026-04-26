@@ -1,6 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Users, Wallet, TrendingUp, Bell, ArrowRight, Loader2 } from "lucide-react";
+import { 
+  Users, Wallet, TrendingUp, Bell, ArrowRight, Loader2, 
+  ArrowUpCircle, Activity, Briefcase, ChevronRight
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatDateTime } from "@/lib/format";
 
@@ -24,7 +27,8 @@ function AdminHome() {
     users: 0,
     aum: 0,
     activeInvestments: 0,
-    pending: 0,
+    pendingDeps: 0,
+    pendingWds: 0,
   });
   const [recent, setRecent] = useState<RecentDeposit[]>([]);
 
@@ -35,6 +39,7 @@ function AdminHome() {
         { data: profileSums },
         { count: invCount },
         { data: pendingDeps },
+        { data: pendingWds },
         { data: recentDeps },
       ] = await Promise.all([
         supabase.from("profiles").select("id", { count: "exact", head: true }),
@@ -44,6 +49,7 @@ function AdminHome() {
           .select("id", { count: "exact", head: true })
           .eq("status", "active"),
         supabase.from("deposits").select("id").eq("status", "pending"),
+        supabase.from("withdrawals").select("id").eq("status", "pending"),
         supabase
           .from("deposits")
           .select("*")
@@ -72,7 +78,8 @@ function AdminHome() {
         users: usersCount ?? 0,
         aum,
         activeInvestments: invCount ?? 0,
-        pending: pendingDeps?.length ?? 0,
+        pendingDeps: pendingDeps?.length ?? 0,
+        pendingWds: pendingWds?.length ?? 0,
       });
       setRecent(merged);
       setLoading(false);
@@ -87,94 +94,88 @@ function AdminHome() {
     );
   }
 
+  const totalPending = stats.pendingDeps + stats.pendingWds;
+
   return (
-    <div className="space-y-8">
-      <div>
-        <p className="text-xs uppercase tracking-[0.25em] text-primary">Operations</p>
-        <h1 className="mt-1 font-display text-3xl lg:text-4xl">Command center</h1>
+    <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary">System Monitoring</p>
+          <h1 className="mt-1 font-display text-4xl text-white">Platform Overview</h1>
+        </div>
+        <div className="flex items-center gap-2 rounded-2xl bg-white/5 border border-white/5 px-4 py-2 text-xs text-muted-foreground">
+          <Activity size={14} className="text-success animate-pulse" />
+          System Operational
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Kpi label="Total users" value={stats.users.toString()} icon={Users} />
-        <Kpi
-          label="Assets under management"
-          value={formatCurrency(stats.aum)}
-          icon={Wallet}
-        />
-        <Kpi
-          label="Active investments"
-          value={stats.activeInvestments.toString()}
-          icon={TrendingUp}
-        />
-        <Kpi
-          label="Pending deposits"
-          value={stats.pending.toString()}
-          icon={Bell}
-          alert={stats.pending > 0}
-        />
+        <Kpi label="Total Users" value={stats.users.toLocaleString()} icon={Users} gradient="from-blue-500/20 to-indigo-500/20" />
+        <Kpi label="Total Assets" value={formatCurrency(stats.aum)} icon={Wallet} gradient="from-emerald-500/20 to-teal-500/20" />
+        <Kpi label="Active Plans" value={stats.activeInvestments.toLocaleString()} icon={Briefcase} gradient="from-amber-500/20 to-orange-500/20" />
+        <Kpi label="Avg. Balance" value={formatCurrency(stats.aum / (stats.users || 1))} icon={TrendingUp} gradient="from-purple-500/20 to-pink-500/20" />
       </div>
 
-      {stats.pending > 0 && (
-        <div className="rounded-3xl border border-warning/40 bg-warning/5 p-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="grid h-11 w-11 place-items-center rounded-xl bg-warning/20 text-warning">
-                <Bell size={18} />
-              </div>
-              <div>
-                <h3 className="font-display text-lg">
-                  {stats.pending} deposit{stats.pending === 1 ? "" : "s"} awaiting confirmation
-                </h3>
-                <p className="text-xs text-muted-foreground">
-                  Review and approve to credit user accounts.
-                </p>
-              </div>
-            </div>
-            <Link
-              to="/admin/deposits"
-              className="inline-flex items-center gap-1.5 rounded-full bg-gradient-gold px-5 py-2 text-xs font-semibold text-primary-foreground shadow-gold"
-            >
-              Review now <ArrowRight size={13} />
-            </Link>
-          </div>
+      {(stats.pendingDeps > 0 || stats.pendingWds > 0) && (
+        <div className="grid gap-4 md:grid-cols-2">
+          {stats.pendingDeps > 0 && (
+            <AlertCard 
+              count={stats.pendingDeps} 
+              label="Pending Deposits" 
+              to="/admin/deposits" 
+              icon={Bell}
+              color="warning"
+            />
+          )}
+          {stats.pendingWds > 0 && (
+            <AlertCard 
+              count={stats.pendingWds} 
+              label="Pending Withdrawals" 
+              to="/admin/withdrawals" 
+              icon={ArrowUpCircle}
+              color="primary"
+            />
+          )}
         </div>
       )}
 
       <section>
-        <h2 className="font-display text-xl">Recent deposit activity</h2>
-        <div className="mt-4 overflow-hidden rounded-3xl border border-border/60 bg-card/40 backdrop-blur">
-          <div className="divide-y divide-border/50">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="font-display text-2xl text-white">Recent Activity</h2>
+          <Link to="/admin/history" className="text-xs font-bold uppercase tracking-widest text-primary hover:underline">View Ledger</Link>
+        </div>
+        
+        <div className="overflow-hidden rounded-[2rem] border border-white/5 bg-white/[0.02] backdrop-blur-sm">
+          <div className="divide-y divide-white/5">
             {recent.length === 0 ? (
-              <div className="px-5 py-12 text-center text-sm text-muted-foreground">
-                No deposits yet.
+              <div className="px-5 py-16 text-center text-sm text-muted-foreground italic">
+                No recent transactions detected.
               </div>
             ) : (
               recent.map((d) => (
-                <div
-                  key={d.id}
-                  className="flex items-center justify-between gap-3 px-5 py-4"
-                >
-                  <div>
-                    <div className="text-sm font-semibold">
-                      {d.profile?.full_name || "Unknown user"}
+                <div key={d.id} className="group flex items-center justify-between gap-3 px-6 py-5 hover:bg-white/[0.02] transition-colors">
+                  <div className="flex items-center gap-4">
+                    <div className="grid h-10 w-10 place-items-center rounded-xl bg-white/5 text-muted-foreground group-hover:text-primary transition-colors">
+                      <Wallet size={18} />
                     </div>
-                    <div className="text-[11px] text-muted-foreground">
-                      {d.profile?.email} · {d.token} · {formatDateTime(d.created_at)}
+                    <div>
+                      <div className="text-sm font-bold text-white group-hover:text-primary transition-colors">
+                        {d.profile?.full_name || "Anonymous User"}
+                      </div>
+                      <div className="text-[11px] text-muted-foreground">
+                        {d.token} • {formatDateTime(d.created_at)}
+                      </div>
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="font-mono text-sm font-semibold">
+                    <div className="font-mono text-sm font-bold text-gradient-gold">
                       {formatCurrency(d.amount)}
                     </div>
-                    <span
-                      className={`mt-0.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize ${
-                        d.status === "received"
-                          ? "bg-success/15 text-success"
-                          : d.status === "rejected"
-                            ? "bg-destructive/15 text-destructive"
-                            : "bg-warning/15 text-warning"
-                      }`}
-                    >
+                    <span className={`mt-1 inline-block rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-widest ${
+                      d.status === "received" ? "bg-success/10 text-success border border-success/20" : 
+                      d.status === "rejected" ? "bg-destructive/10 text-destructive border border-destructive/20" : 
+                      "bg-warning/10 text-warning border border-warning/20"
+                    }`}>
                       {d.status}
                     </span>
                   </div>
@@ -188,30 +189,35 @@ function AdminHome() {
   );
 }
 
-function Kpi({
-  label,
-  value,
-  icon: Icon,
-  alert,
-}: {
-  label: string;
-  value: string;
-  icon: typeof Users;
-  alert?: boolean;
-}) {
+function Kpi({ label, value, icon: Icon, gradient }: { label: string, value: string, icon: any, gradient: string }) {
   return (
-    <div
-      className={`rounded-3xl border p-5 backdrop-blur ${alert ? "border-warning/40 bg-warning/5" : "border-border/60 bg-card/60"}`}
-    >
-      <div className="flex items-center justify-between">
-        <div
-          className={`grid h-10 w-10 place-items-center rounded-xl ${alert ? "bg-warning/20 text-warning" : "bg-primary/15 text-primary"}`}
-        >
+    <div className="group relative overflow-hidden rounded-[2rem] border border-white/5 bg-white/[0.02] p-6 transition-all hover:bg-white/[0.04]">
+      <div className={`absolute -right-4 -top-4 h-24 w-24 rounded-full bg-gradient-to-br ${gradient} blur-2xl opacity-50 group-hover:opacity-80 transition-opacity`} />
+      <div className="relative">
+        <div className="grid h-10 w-10 place-items-center rounded-xl bg-white/5 text-primary group-hover:scale-110 transition-transform">
           <Icon size={18} />
         </div>
+        <div className="mt-5 font-display text-3xl text-white tracking-tight">{value}</div>
+        <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60">{label}</div>
       </div>
-      <div className="mt-4 font-display text-2xl text-gradient-gold">{value}</div>
-      <div className="mt-1 text-[11px] uppercase tracking-wider text-muted-foreground">{label}</div>
     </div>
+  );
+}
+
+function AlertCard({ count, label, to, icon: Icon, color }: { count: number, label: string, to: string, icon: any, color: "warning" | "primary" }) {
+  const colorCls = color === "warning" ? "text-warning bg-warning/10 border-warning/20" : "text-primary bg-primary/10 border-primary/20";
+  return (
+    <Link to={to} className={`flex items-center justify-between gap-4 rounded-[1.5rem] border p-5 transition-all hover:scale-[1.02] active:scale-95 ${colorCls}`}>
+      <div className="flex items-center gap-4">
+        <div className="grid h-12 w-12 place-items-center rounded-2xl bg-white/10">
+          <Icon size={24} />
+        </div>
+        <div>
+          <div className="font-display text-xl">{count} {label}</div>
+          <div className="text-[10px] font-bold uppercase tracking-widest opacity-70">Awaiting your review</div>
+        </div>
+      </div>
+      <ChevronRight size={20} />
+    </Link>
   );
 }

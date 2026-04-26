@@ -1,17 +1,23 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
+import { supabase } from "@/integrations/supabase/client";
 
 export type Profile = {
   id: string;
-  email: string;
-  full_name?: string;
-  username?: string;
-  country?: string;
-  phone?: string;
+  email: string | null;
+  full_name: string | null;
+  username: string | null;
+  country: string | null;
+  phone: string | null;
   balance: number;
+  profit_balance: number;
   total_invested: number;
   total_profit: number;
   custom_roi_bonus: number;
+  referred_by: string | null;
+  referral_count: number;
+  referral_earnings: number;
+  created_at: string;
 };
 
 type AuthContextValue = {
@@ -22,12 +28,9 @@ type AuthContextValue = {
   loading: boolean;
   refreshProfile: () => Promise<void>;
   signOut: () => Promise<void>;
-  mockLogin: (email: string, fullName?: string, country?: string) => void;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
-
-const MOCK_USER_ID = "mock-user-123";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -36,69 +39,76 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const loadUserData = async () => {
-    // Temporary mock data
-    const mockProfile: Profile = {
-      id: MOCK_USER_ID,
-      full_name: localStorage.getItem("mock_name") || "Demo User",
-      email: localStorage.getItem("mock_email") || "demo@example.com",
-      username: localStorage.getItem("mock_username") || "johndoe",
-      country: localStorage.getItem("mock_country") || "United States",
-      phone: localStorage.getItem("mock_phone") || "+1 555-0198",
-      balance: 150000,
-      total_invested: 50000,
-      total_profit: 12500,
-      custom_roi_bonus: 0,
-    };
-    setProfile(mockProfile);
-    setIsAdmin(false);
+  const fetchProfile = async (userId: string) => {
+    try {
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", userId)
+        .single();
+
+      if (profileError) {
+        console.error("Error fetching profile:", profileError);
+        return;
+      }
+
+      if (profileData) {
+        setProfile(profileData as Profile);
+        
+        // Check for admin role
+        const { data: roleData } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", userId)
+          .eq("role", "admin")
+          .maybeSingle();
+        
+        setIsAdmin(!!roleData);
+      }
+    } catch (err) {
+      console.error("Auth error:", err);
+    }
   };
 
   useEffect(() => {
-    // Check local storage for mock session
-    const isMockLoggedIn = localStorage.getItem("mock_logged_in") === "true";
-    
-    if (isMockLoggedIn) {
-      const mockUser = { id: MOCK_USER_ID, email: localStorage.getItem("mock_email") || "demo@example.com" } as User;
-      const mockSession = { user: mockUser } as Session;
-      
-      setSession(mockSession);
-      setUser(mockUser);
-      loadUserData().finally(() => setLoading(false));
-    } else {
+    // 1. Check current session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        fetchProfile(session.user.id).finally(() => setLoading(false));
+      } else {
+        setLoading(false);
+      }
+    });
+
+    // 2. Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        fetchProfile(session.user.id);
+      } else {
+        setProfile(null);
+        setIsAdmin(false);
+      }
       setLoading(false);
-    }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const refreshProfile = async () => {
-    if (user) await loadUserData();
+    if (user) await fetchProfile(user.id);
   };
 
   const signOut = async () => {
-    localStorage.removeItem("mock_logged_in");
-    setSession(null);
-    setUser(null);
-    setProfile(null);
-  };
-
-  const mockLogin = (email: string, fullName?: string, country?: string, phone?: string) => {
-    localStorage.setItem("mock_logged_in", "true");
-    localStorage.setItem("mock_email", email);
-    if (fullName) localStorage.setItem("mock_name", fullName);
-    if (country) localStorage.setItem("mock_country", country);
-    if (phone) localStorage.setItem("mock_phone", phone);
-    
-    const mockUser = { id: MOCK_USER_ID, email } as User;
-    const mockSession = { user: mockUser } as Session;
-    
-    setSession(mockSession);
-    setUser(mockUser);
-    loadUserData();
+    await supabase.auth.signOut();
   };
 
   return (
     <AuthContext.Provider
-      value={{ session, user, profile, isAdmin, loading, refreshProfile, signOut, mockLogin }}
+      value={{ session, user, profile, isAdmin, loading, refreshProfile, signOut }}
     >
       {children}
     </AuthContext.Provider>
@@ -110,4 +120,5 @@ export function useAuth() {
   if (!ctx) throw new Error("useAuth must be used within AuthProvider");
   return ctx;
 }
+
 

@@ -1,102 +1,175 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { ArrowDownToLine, ArrowUpToLine, Coins, Loader2 } from "lucide-react";
+import { 
+  ArrowDownToLine, 
+  ArrowUpToLine, 
+  Coins, 
+  Loader2, 
+  TrendingUp, 
+  Target, 
+  Users, 
+  History as HistoryIcon,
+  Filter
+} from "lucide-react";
 import { formatCurrency, formatDateTime } from "@/lib/format";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 
-const TABS = ["All", "Deposits", "Withdrawals", "Investments"] as const;
+const TABS = ["All", "Daily Drops", "Referrals", "Withdrawals", "Deposits"] as const;
 
 export const Route = createFileRoute("/dashboard/history")({
-  head: () => ({ meta: [{ title: "History — Gold Empire" }] }),
+  head: () => ({ meta: [{ title: "Earnings — Gold Empire" }] }),
   component: HistoryPage,
 });
 
-type Row = { id: string; type: "deposit" | "withdrawal" | "investment"; amount: number; status: string; meta: string; date: string };
+type Row = { 
+  id: string; 
+  type: string; 
+  amount: number; 
+  status: string; 
+  description: string | null; 
+  created_at: string 
+};
 
 function HistoryPage() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [tab, setTab] = useState<typeof TABS[number]>("All");
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) return;
-    (async () => {
-      const [{ data: deps }, { data: wdrs }, { data: invs }] = await Promise.all([
-        supabase.from("deposits").select("id, amount, status, token, network, created_at").eq("user_id", user.id),
-        supabase.from("withdrawals").select("id, amount, status, token, created_at").eq("user_id", user.id),
-        supabase.from("investments").select("id, amount, status, daily_roi_pct, created_at, plans(name)").eq("user_id", user.id),
-      ]);
-      const all: Row[] = [
-        ...(deps || []).map((d: any) => ({ id: d.id, type: "deposit" as const, amount: Number(d.amount), status: d.status, meta: `${d.token} · ${d.network}`, date: d.created_at })),
-        ...(wdrs || []).map((w: any) => ({ id: w.id, type: "withdrawal" as const, amount: Number(w.amount), status: w.status, meta: w.token, date: w.created_at })),
-        ...(invs || []).map((i: any) => ({ id: i.id, type: "investment" as const, amount: Number(i.amount), status: i.status, meta: `${i.plans?.name} · ${i.daily_roi_pct}%/d`, date: i.created_at })),
-      ].sort((a, b) => +new Date(b.date) - +new Date(a.date));
-      setRows(all);
+    const load = async () => {
+      if (!user) return;
+      const { data } = await supabase
+        .from("transactions")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+      setRows(data || []);
       setLoading(false);
-    })();
+    };
+    load();
   }, [user]);
 
   const filtered = rows.filter((t) => {
     if (tab === "All") return true;
-    if (tab === "Deposits") return t.type === "deposit";
+    if (tab === "Daily Drops") return t.type === "roi";
+    if (tab === "Referrals") return t.type === "referral";
     if (tab === "Withdrawals") return t.type === "withdrawal";
-    if (tab === "Investments") return t.type === "investment";
+    if (tab === "Deposits") return t.type === "deposit";
     return true;
   });
 
-  const ICONS = { deposit: ArrowDownToLine, withdrawal: ArrowUpToLine, investment: Coins };
+  const ICONS: Record<string, any> = { 
+    roi: TrendingUp, 
+    referral: Users, 
+    withdrawal: ArrowUpToLine,
+    deposit: ArrowDownToLine,
+    investment: Target,
+    reinvest: Target
+  };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="font-display text-3xl lg:text-4xl">History</h1>
-        <p className="mt-1 text-sm text-muted-foreground">All your activity, fully transparent.</p>
+    <div className="space-y-8 pb-24 max-w-6xl mx-auto px-1">
+      {/* --- HEADER --- */}
+      <header className="py-2">
+        <h1 className="font-display text-2xl font-bold text-white tracking-tight">Earnings</h1>
+        <p className="text-xs text-muted-foreground mt-1">Track your profit and portfolio growth.</p>
+      </header>
+
+      {/* --- EARNINGS STATS --- */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="glass rounded-[2rem] p-6 border-primary/20 bg-[#0a0a0a]/60 shadow-flash-gold">
+          <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-wider text-primary mb-4">
+            <TrendingUp size={12} /> Profit Balance
+          </div>
+          <div className="font-display text-2xl font-bold text-white mb-1">{formatCurrency(profile?.balance || 0)}</div>
+          <div className="text-[10px] text-success font-bold">Available for withdrawal</div>
+        </div>
+
+        <div className="glass rounded-[2rem] p-6 border-white/5 bg-[#0a0a0a]/60">
+          <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-wider text-primary mb-4">
+            <Target size={12} /> Total Invested
+          </div>
+          <div className="font-display text-2xl font-bold text-white mb-1">{formatCurrency(profile?.total_invested || 0)}</div>
+          <div className="text-[10px] text-muted-foreground/60 font-bold">Active working capital</div>
+        </div>
+
+        <div className="glass rounded-[2rem] p-6 border-white/5 bg-[#0a0a0a]/60">
+          <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-wider text-primary mb-4">
+            <Users size={12} /> Referral Profit
+          </div>
+          <div className="font-display text-2xl font-bold text-white mb-1">{formatCurrency(profile?.referral_earnings || 0)}</div>
+          <div className="text-[10px] text-muted-foreground/60 font-bold">{profile?.referral_count || 0} partners in network</div>
+        </div>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        {TABS.map((t) => (
-          <button key={t} onClick={() => setTab(t)}
-            className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-colors ${
-              tab === t ? "bg-gradient-gold text-primary-foreground shadow-gold" : "border border-border bg-background/40 text-foreground/80 hover:border-primary"
-            }`}>{t}</button>
-        ))}
-      </div>
-
-      {loading ? (
-        <div className="grid place-items-center py-20"><Loader2 className="animate-spin text-primary" /></div>
-      ) : (
-        <div className="overflow-hidden rounded-3xl border border-border/60 bg-card/40 backdrop-blur">
-          <div className="divide-y divide-border/50">
-            {filtered.map((t) => {
-              const Icon = ICONS[t.type];
-              const sign = t.type === "withdrawal" || t.type === "investment" ? "-" : "+";
-              return (
-                <div key={t.id} className="flex items-center justify-between gap-3 px-5 py-4">
-                  <div className="flex items-center gap-3">
-                    <div className="grid h-10 w-10 place-items-center rounded-xl bg-primary/15 text-primary"><Icon size={16} /></div>
-                    <div>
-                      <div className="text-sm font-semibold capitalize">{t.type} · {t.meta}</div>
-                      <div className="text-[11px] text-muted-foreground">{formatDateTime(t.date)}</div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-mono text-sm font-semibold">{sign}{formatCurrency(t.amount)}</div>
-                    <span className={`mt-0.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize ${
-                      t.status === "received" || t.status === "approved" || t.status === "active" || t.status === "completed" ? "bg-success/15 text-success" :
-                      t.status === "rejected" ? "bg-destructive/15 text-destructive" : "bg-warning/15 text-warning"
-                    }`}>{t.status}</span>
-                  </div>
-                </div>
-              );
-            })}
-            {filtered.length === 0 && (
-              <div className="px-5 py-12 text-center text-sm text-muted-foreground">No transactions in this view.</div>
-            )}
+      {/* --- HISTORY SECTION --- */}
+      <section className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="grid h-7 w-7 place-items-center rounded-lg bg-primary/10 text-primary"><HistoryIcon size={16} /></div>
+            <h2 className="font-display text-xl">History</h2>
+          </div>
+          
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar max-w-[200px] lg:max-w-none">
+            {TABS.map((t) => (
+              <button 
+                key={t} 
+                onClick={() => setTab(t)}
+                className={`whitespace-nowrap rounded-full px-4 py-1.5 text-[10px] font-bold transition-all ${
+                  tab === t ? "bg-primary text-primary-foreground shadow-gold" : "bg-white/5 text-muted-foreground hover:bg-white/10"
+                }`}
+              >
+                {t}
+              </button>
+            ))}
           </div>
         </div>
-      )}
+
+        {loading ? (
+          <div className="grid place-items-center py-20"><Loader2 className="animate-spin text-primary" /></div>
+        ) : (
+          <div className="glass rounded-[2rem] overflow-hidden border-white/5 bg-[#0a0a0a]/60">
+            <div className="divide-y divide-white/5">
+              {filtered.map((t) => {
+                const Icon = ICONS[t.type] || Coins;
+                const isPositive = ["drop", "roi", "referral", "deposit"].includes(t.type);
+                return (
+                  <div key={t.id} className="flex items-center justify-between gap-3 px-6 py-5 hover:bg-white/[0.02] transition-colors">
+                    <div className="flex items-center gap-4">
+                      <div className={`grid h-10 w-10 place-items-center rounded-2xl border ${
+                        isPositive ? "border-primary/20 bg-primary/5 text-primary" : "border-white/10 bg-white/5 text-muted-foreground"
+                      }`}>
+                        <Icon size={18} />
+                      </div>
+                      <div>
+                        <div className="text-[11px] font-black uppercase tracking-tight text-white mb-0.5">{t.type === 'roi' ? 'Profit Drop' : t.type}</div>
+                        <div className="text-[10px] text-muted-foreground/60 font-medium">{t.description}</div>
+                        <div className="text-[9px] text-muted-foreground/40 mt-1">{formatDateTime(t.created_at)}</div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className={`font-display text-base font-bold ${isPositive ? "text-primary" : "text-white opacity-60"}`}>
+                        {isPositive ? "+" : "-"}{formatCurrency(t.amount)}
+                      </div>
+                      <span className={`mt-2 inline-block rounded-lg px-2 py-1 text-[8px] font-black uppercase tracking-widest ${
+                        t.status === "completed" || t.status === "approved" ? "bg-primary/10 text-primary" : "bg-white/5 text-muted-foreground"
+                      }`}>
+                        {t.status}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+              {filtered.length === 0 && (
+                <div className="px-5 py-12 text-center text-xs text-muted-foreground font-medium italic">No transactions found in this category.</div>
+              )}
+            </div>
+          </div>
+        )}
+      </section>
     </div>
   );
 }
+

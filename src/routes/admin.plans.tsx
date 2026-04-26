@@ -61,11 +61,11 @@ function AdminPlansPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 animate-in fade-in duration-500">
       <div>
-        <h1 className="font-display text-3xl lg:text-4xl">Investment plans</h1>
+        <h1 className="font-display text-3xl lg:text-4xl text-gradient-gold">Investment plans</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Adjust ROI rates, ranges and durations.
+          Configure and adjust the core ROI offerings for your investors.
         </p>
       </div>
 
@@ -74,32 +74,41 @@ function AdminPlansPage() {
           <Loader2 className="animate-spin text-primary" />
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {list.map((p) => (
             <div
               key={p.id}
-              className="rounded-3xl border border-border/60 bg-card/60 p-5 backdrop-blur"
+              className="group relative overflow-hidden rounded-[2rem] border border-white/5 bg-white/[0.02] p-6 backdrop-blur-sm transition-all hover:bg-white/[0.04] hover:border-white/10"
             >
               <div className="flex items-center justify-between">
-                <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+                <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60">
                   {p.tier}
                 </div>
                 {p.tier.toLowerCase() === "diamond" && <Crown size={14} className="text-primary" />}
               </div>
-              <h3 className="mt-1 font-display text-2xl text-gradient-gold">{p.name}</h3>
-              <div className="mt-3 font-display text-3xl">
-                {p.daily_roi_pct}%
-                <span className="text-xs text-muted-foreground"> /day</span>
+              <h3 className="mt-1 font-display text-2xl text-white group-hover:text-primary transition-colors">{p.name}</h3>
+              
+              <div className="mt-6 flex items-baseline gap-1">
+                <span className="font-display text-4xl text-gradient-gold">{p.daily_roi_pct}%</span>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">/ Day</span>
               </div>
-              <div className="mt-2 text-xs text-muted-foreground">
-                {formatCurrency(p.min_amount)} — {formatCurrency(p.max_amount)} ·{" "}
-                {p.duration_days}d
+
+              <div className="mt-4 space-y-2 border-t border-white/5 pt-4 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground uppercase tracking-widest text-[9px]">Min — Max</span>
+                  <span className="font-mono">{formatCurrency(p.min_amount)} — {formatCurrency(p.max_amount)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground uppercase tracking-widest text-[9px]">Duration</span>
+                  <span>{p.duration_days} Days</span>
+                </div>
               </div>
+
               <button
                 onClick={() => setEditing(p)}
-                className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-full border border-border py-2 text-xs font-semibold hover:border-primary hover:text-primary"
+                className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-white/5 py-3 text-[11px] font-bold uppercase tracking-wider transition-all hover:bg-white/10 hover:text-primary border border-white/5 active:scale-95"
               >
-                <Edit3 size={12} /> Edit
+                <Edit3 size={13} /> Manage Plan
               </button>
             </div>
           ))}
@@ -107,22 +116,22 @@ function AdminPlansPage() {
       )}
 
       {editing && (
-        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-background/70 p-4 backdrop-blur sm:items-center">
+        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/80 p-4 backdrop-blur-md sm:items-center">
           <form
             onSubmit={handleSave}
-            className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-emerald animate-scale-in"
+            className="w-full max-w-md rounded-3xl border border-white/10 bg-[#050c0a] p-8 shadow-emerald animate-in zoom-in duration-300"
           >
-            <div className="flex items-center justify-between">
-              <h3 className="font-display text-2xl">Edit {editing.name}</h3>
+            <div className="flex items-center justify-between mb-8">
+              <h3 className="font-display text-2xl text-white">Edit {editing.name}</h3>
               <button
                 type="button"
                 onClick={() => setEditing(null)}
-                className="grid h-9 w-9 place-items-center rounded-full hover:bg-accent"
+                className="grid h-10 w-10 place-items-center rounded-full hover:bg-white/5"
               >
-                <X size={16} />
+                <X size={18} />
               </button>
             </div>
-            <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
+            <div className="grid grid-cols-2 gap-4 text-sm">
               <Field label="Daily ROI %" name="roi" defaultValue={editing.daily_roi_pct} />
               <Field
                 label="Duration (days)"
@@ -134,10 +143,10 @@ function AdminPlansPage() {
             </div>
             <button
               disabled={saving}
-              className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-gradient-gold py-2.5 text-sm font-semibold text-primary-foreground shadow-gold disabled:opacity-60"
+              className="mt-8 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-gold py-3.5 text-[11px] font-bold uppercase tracking-widest text-primary-foreground shadow-gold disabled:opacity-60 active:scale-95 transition-transform"
             >
               {saving && <Loader2 size={14} className="animate-spin" />}
-              Save
+              Update Configuration
             </button>
           </form>
         </div>
@@ -157,13 +166,13 @@ function Field({
 }) {
   return (
     <div>
-      <label className="text-xs font-medium">{label}</label>
+      <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 px-1">{label}</label>
       <input
         type="number"
         step="0.01"
         name={name}
         defaultValue={defaultValue}
-        className="mt-1.5 w-full rounded-xl border border-border bg-background/60 px-3 py-2 text-sm outline-none focus:border-primary"
+        className="mt-2 w-full rounded-xl border border-white/5 bg-white/5 px-4 py-3 text-sm font-display outline-none focus:border-primary transition-colors"
       />
     </div>
   );

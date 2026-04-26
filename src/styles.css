@@ -148,6 +148,7 @@
 
   html {
     scroll-behavior: smooth;
+    font-size: 14px;
   }
 
   body {
@@ -156,9 +157,8 @@
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     background-image:
-      radial-gradient(1000px 600px at 100% 0%, oklch(0.48 0.14 165 / 15%), transparent 60%),
-      radial-gradient(900px 500px at 0% 100%, oklch(0.62 0.13 75 / 15%), transparent 60%),
-      radial-gradient(600px 600px at 50% 50%, oklch(0.78 0.13 85 / 5%), transparent 60%);
+      radial-gradient(1000px 600px at 100% 0%, oklch(0.78 0.13 85 / 10%), transparent 60%),
+      radial-gradient(900px 500px at 0% 100%, oklch(0.62 0.13 75 / 10%), transparent 60%);
     background-attachment: fixed;
   }
 
@@ -189,33 +189,33 @@
   }
 
   .shadow-gold {
-    box-shadow: var(--shadow-gold);
+    box-shadow: 0 10px 40px -10px oklch(0.78 0.13 85 / 20%);
   }
 
   .shadow-emerald {
-    box-shadow: var(--shadow-emerald);
+    box-shadow: 0 25px 70px -25px oklch(0.78 0.13 85 / 15%);
   }
 
   .shadow-card {
-    box-shadow: var(--shadow-card);
+    box-shadow: 0 10px 40px -15px oklch(0.78 0.13 85 / 12%);
   }
 
-  @keyframes flash-emerald {
-    0%, 100% { box-shadow: 0 0 15px -3px oklch(0.52 0.155 165 / 15%); border-color: oklch(0.52 0.155 165 / 20%); }
-    50% { box-shadow: 0 0 35px 5px oklch(0.52 0.155 165 / 60%); border-color: oklch(0.52 0.155 165 / 60%); }
+  @keyframes gold-glow {
+    0%, 100% { box-shadow: 0 0 15px -3px oklch(0.78 0.13 85 / 10%); border-color: oklch(0.78 0.13 85 / 20%); }
+    50% { box-shadow: 0 0 35px 5px oklch(0.78 0.13 85 / 25%); border-color: oklch(0.78 0.13 85 / 40%); }
   }
 
-  .shadow-flash-emerald {
-    animation: flash-emerald 3.5s ease-in-out infinite;
+  .shadow-flash-gold {
+    animation: gold-glow 4s ease-in-out infinite;
   }
 
   .glass {
-    background: oklch(0.21 0.007 250 / 40%);
+    background: oklch(0.21 0.007 250 / 45%);
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
-    border: 1px solid oklch(0.95 0.012 80 / 10%);
-    border-top: 1px solid oklch(0.95 0.012 80 / 20%);
-    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    border: 1px solid oklch(0.78 0.13 85 / 15%);
+    border-top: 1px solid oklch(0.78 0.13 85 / 25%);
+    box-shadow: 0 12px 40px -10px oklch(0.78 0.13 85 / 8%);
   }
 
   .gold-border {

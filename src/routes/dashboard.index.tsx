@@ -1,11 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
-  ArrowDownToLine, ArrowUpToLine, Repeat, TrendingUp, Sparkles, ShieldCheck, Loader2,
+  ArrowDownToLine, ArrowUpToLine, Repeat, TrendingUp, Sparkles, ShieldCheck, Loader2, Briefcase, Wallet, History, Users, Activity,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import { useAuth } from "@/lib/auth";
-import { mockService, getProfitWithdrawn, getReferralBonus } from "@/lib/mock-service";
+import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
 
 export const Route = createFileRoute("/dashboard/")({
@@ -15,10 +15,8 @@ export const Route = createFileRoute("/dashboard/")({
 type Inv = {
   id: string;
   amount: number;
-  daily_roi_pct: number;
-  duration_days: number;
+  daily_roi_percent: number;
   started_at: string;
-  ends_at: string;
   status: string;
   plans: { name: string } | null;
 };
@@ -31,36 +29,8 @@ const fadeUp = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } },
 };
 
-// Animated Number Component
-function AnimatedNumber({ value, isCurrency = false }: { value: number; isCurrency?: boolean }) {
-  const [displayValue, setDisplayValue] = useState(0);
-
-  useEffect(() => {
-    let startTime: number;
-    const duration = 1000;
-    const startValue = 0;
-
-    const step = (timestamp: number) => {
-      if (!startTime) startTime = timestamp;
-      const progress = Math.min((timestamp - startTime) / duration, 1);
-      const easeProgress = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
-      setDisplayValue(startValue + (value - startValue) * easeProgress);
-
-      if (progress < 1) {
-        requestAnimationFrame(step);
-      } else {
-        setDisplayValue(value);
-      }
-    };
-
-    requestAnimationFrame(step);
-  }, [value]);
-
-  return <>{isCurrency ? formatCurrency(displayValue) : displayValue.toFixed(0)}</>;
-}
-
 function DashboardHome() {
-  const { profile, user, refreshProfile } = useAuth();
+  const { profile, user } = useAuth();
   const [investments, setInvestments] = useState<Inv[]>([]);
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(Date.now());
@@ -68,8 +38,18 @@ function DashboardHome() {
   useEffect(() => {
     const load = async () => {
       if (!user) return;
-      const data = mockService.getInvestments();
-      setInvestments(data || []);
+      
+      const { data, error } = await supabase
+        .from("investments")
+        .select("*, plans(name)")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Error loading investments:", error);
+      } else {
+        setInvestments((data as any[]) || []);
+      }
       setLoading(false);
     };
     load();
@@ -77,88 +57,113 @@ function DashboardHome() {
     return () => clearInterval(t);
   }, [user]);
 
-  const profitWithdrawn = getProfitWithdrawn();
-  const referralBonus = getReferralBonus();
-
-  const totalSubscription = investments.reduce((sum, i) => {
-    if (i.status === "completed" || i.status === "pending") return sum;
-    return sum + i.amount;
-  }, 0);
-
   const dailyProfitExpected = investments.reduce((sum, i) => {
-    if (i.status === "completed" || i.status === "pending") return sum;
-    return sum + (i.amount * (i.daily_roi_pct / 100));
+    if (i.status !== "active") return sum;
+    return sum + (i.amount * (i.daily_roi_percent / 100));
   }, 0);
 
-  const totalProfit = investments.reduce((sum, i) => {
-    if (i.status === "pending") return sum;
-    const start = new Date(i.started_at).getTime();
-    const elapsedDays = Math.max(0, Math.floor((Date.now() - start) / 86400000));
-    return sum + (i.amount * (i.daily_roi_pct / 100) * elapsedDays);
-  }, 0) - profitWithdrawn;
-
-  const totalFund = totalSubscription + Math.max(0, totalProfit) + referralBonus;
+  const totalFund = (profile?.balance || 0) + (profile?.profit_balance || 0);
+  const activeCapital = profile?.total_invested || 0;
+  const currentProfit = profile?.profit_balance || 0;
 
   return (
 
-    <motion.div initial="hidden" animate="visible" variants={stagger} className="space-y-8">
-      <motion.div variants={fadeUp} className="flex flex-wrap items-end justify-between gap-3">
+    <motion.div initial="hidden" animate="visible" variants={stagger} className="space-y-6">
+      <motion.div variants={fadeUp} className="flex items-center justify-between">
         <div>
-          <p className="text-xs uppercase tracking-[0.25em] text-primary">Welcome back</p>
-          <h1 className="mt-1 font-display text-3xl lg:text-4xl">{profile?.full_name || "Investor"}</h1>
-          <div className="mt-1 text-xs text-muted-foreground">
-            {profile?.country} · {profile?.email}
-          </div>
-        </div>
-        <div className="flex items-center gap-2 rounded-full border border-success/40 bg-success/10 px-3 py-1.5 text-xs text-success shadow-[0_0_15px_-3px_oklch(0.72_0.17_150/20%)]">
-          <ShieldCheck size={13} className="animate-pulse" /> Account verified
+          <h1 className="font-display text-2xl flex items-center gap-2">Overview <span className="animate-bounce">👋</span></h1>
+          <p className="text-xs text-success font-medium">Performance at {dailyProfitExpected > 0 && activeCapital > 0 ? (dailyProfitExpected / activeCapital * 100).toFixed(1) : "0"}% Daily ROI</p>
         </div>
       </motion.div>
 
-      <motion.div variants={fadeUp} className="relative overflow-hidden rounded-3xl bg-gradient-emerald p-1 shadow-emerald transition-shadow duration-500 hover:shadow-[0_30px_80px_-20px_oklch(0.48_0.14_165/60%)]">
-        <div className="rounded-[calc(1.5rem-4px)] glass p-7">
-          <div className="grid grid-cols-2 gap-6 sm:grid-cols-4">
-            <div>
-              <div className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-muted-foreground">
-                <Sparkles size={12} className="text-primary" /> Total Fund
-              </div>
-              <div className="mt-2 font-display text-4xl text-gradient-gold lg:text-5xl">
-                {formatCurrency(totalFund)}
-              </div>
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {[
+          { label: "Capital Investment", value: activeCapital, icon: Briefcase, color: "text-primary" },
+          { label: "Profit Balance", value: currentProfit, icon: TrendingUp, color: "text-primary" },
+          { label: "Total Wallet", value: totalFund, icon: Wallet, color: "text-primary" },
+          { label: "Account Status", value: activeCapital > 0 ? "Active" : "Standard", icon: Activity, color: "text-primary" },
+        ].map((stat, i) => (
+          <motion.div 
+            key={i} 
+            variants={fadeUp} 
+            className="glass group relative overflow-hidden rounded-[2rem] p-5 border-primary/20 shadow-gold/10 transition-all hover:border-primary/40"
+          >
+            <div className={`mb-3 flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 ${stat.color}`}>
+              <stat.icon size={18} />
             </div>
-            <div>
-              <div className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-muted-foreground">
-                Total Subscription
-              </div>
-              <div className="mt-2 font-display text-2xl lg:text-3xl text-foreground">
-                {formatCurrency(totalSubscription)}
-              </div>
+            <div className="font-display text-xl lg:text-2xl">
+              {typeof stat.value === "number" ? formatCurrency(stat.value) : stat.value}
             </div>
-            <div>
-              <div className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-muted-foreground">
-                Total Profit
-              </div>
-              <div className="mt-2 font-display text-2xl lg:text-3xl text-success">
-                +{formatCurrency(Math.max(0, totalProfit))}
-              </div>
-            </div>
-            <div>
-              <div className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-muted-foreground">
-                Daily Profit
-              </div>
-              <div className="mt-2 font-display text-2xl lg:text-3xl text-success">
-                +{formatCurrency(dailyProfitExpected)}
-              </div>
-            </div>
-          </div>
+            <div className="mt-1 text-[11px] uppercase tracking-wider text-muted-foreground/80">{stat.label}</div>
+          </motion.div>
+        ))}
+      </div>
+
+      <motion.section variants={fadeUp}>
+        <div className="mb-4 flex items-center gap-2 px-1">
+          <div className="grid h-7 w-7 place-items-center rounded-lg bg-primary/10 text-primary"><Briefcase size={16} /></div>
+          <h2 className="font-display text-xl">Active Portfolio</h2>
         </div>
-      </motion.div>
+
+        {loading ? (
+          <div className="grid place-items-center py-10"><Loader2 className="animate-spin text-primary" /></div>
+        ) : investments.length === 0 ? (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="glass rounded-3xl p-10 text-center text-sm text-muted-foreground">
+            No subscriptions yet. <Link to="/dashboard/invest" className="text-primary hover:underline">Start investing</Link>
+          </motion.div>
+        ) : (
+          <div className="grid gap-4 lg:grid-cols-2">
+            {investments.map((inv) => {
+              return (
+                <motion.div 
+                  key={inv.id} 
+                  whileHover={{ scale: 1.01 }}
+                  className="glass rounded-3xl p-6 shadow-gold/5 border-primary/20"
+                >
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center text-sm pb-3 border-b border-white/5">
+                      <span className="text-muted-foreground">Active Plan</span>
+                      <span className="font-semibold">{inv.plans?.name || "Plan"}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm pb-3 border-b border-white/5">
+                      <span className="text-muted-foreground">Daily ROI</span>
+                      <span className="font-semibold text-primary">{inv.daily_roi_percent}%</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm pb-3 border-b border-white/5">
+                      <span className="text-muted-foreground">Portfolio Value</span>
+                      <span className="font-semibold">{formatCurrency(inv.amount)}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-muted-foreground">Status</span>
+                      <span className={`font-semibold capitalize ${inv.status === 'active' ? 'text-primary' : 'text-warning'}`}>{inv.status}</span>
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        )}
+      </motion.section>
+
+      <motion.section variants={fadeUp} className="glass rounded-3xl p-6">
+        <div className="mb-6 flex items-center justify-between px-1">
+          <div className="flex items-center gap-2">
+            <div className="grid h-7 w-7 place-items-center rounded-lg bg-primary/10 text-primary"><History size={16} /></div>
+            <h2 className="font-display text-xl">Recent Activity</h2>
+          </div>
+          <Link to="/dashboard/history" className="text-xs font-semibold text-primary hover:underline">View All</Link>
+        </div>
+
+        <div className="space-y-5">
+          <ActivityList userId={user?.id} />
+        </div>
+      </motion.section>
 
       <motion.section variants={fadeUp} className="glass rounded-3xl p-4 overflow-hidden">
         <div className="mb-4 flex justify-between items-end px-2">
           <div>
-            <h2 className="font-display text-2xl">Market Overview</h2>
-            <p className="text-sm text-muted-foreground">Live crypto charts and analysis.</p>
+            <h2 className="font-display text-xl">Market Overview</h2>
+            <p className="text-xs text-muted-foreground">Live crypto charts and analysis.</p>
           </div>
         </div>
         <div className="h-[400px] w-full rounded-2xl overflow-hidden border border-border/50">
@@ -172,89 +177,51 @@ function DashboardHome() {
           ></iframe>
         </div>
       </motion.section>
-
-      <motion.section variants={fadeUp}>
-        <div className="flex items-end justify-between">
-          <div>
-            <h2 className="font-display text-2xl">Active investments</h2>
-            <p className="text-sm text-muted-foreground">Your money working across markets.</p>
-          </div>
-          <Link to="/dashboard/invest" className="text-sm font-semibold text-primary hover:underline transition-all">
-            New investment →
-          </Link>
-        </div>
-
-        {loading ? (
-          <div className="mt-5 grid place-items-center py-10"><Loader2 className="animate-spin text-primary" /></div>
-        ) : investments.length === 0 ? (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-5 glass rounded-3xl p-10 text-center text-sm text-muted-foreground">
-            No subscriptions yet. <Link to="/dashboard/invest" className="text-primary hover:underline">Start investing</Link>
-          </motion.div>
-        ) : (
-          <div className="mt-5 grid gap-4 lg:grid-cols-2">
-            {investments.map((inv) => {
-              const start = new Date(inv.started_at).getTime();
-              let elapsedDays = 0;
-              let countdown = "";
-              let earned = 0;
-              
-              if (inv.status !== "pending") {
-                const totalElapsedMs = now - start;
-                elapsedDays = Math.max(0, Math.floor(totalElapsedMs / 86400000));
-                earned = inv.amount * (inv.daily_roi_pct / 100) * elapsedDays;
-
-                const msToNext = 86400000 - (totalElapsedMs % 86400000);
-                const hrs = Math.floor(msToNext / 3600000).toString().padStart(2, "0");
-                const mins = Math.floor((msToNext % 3600000) / 60000).toString().padStart(2, "0");
-                const secs = Math.floor((msToNext % 60000) / 1000).toString().padStart(2, "0");
-                countdown = `${hrs}:${mins}:${secs}`;
-              }
-
-              return (
-                <motion.div 
-                  key={inv.id} 
-                  whileHover={{ scale: 1.02, y: -4 }}
-                  className={`glass rounded-3xl p-6 transition-all ${inv.status === "active" ? "shadow-flash-emerald border-emerald/30" : "hover:shadow-card hover:border-primary/30"}`}
-                >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="text-xs uppercase tracking-wider text-muted-foreground">{inv.plans?.name || "Plan"}</div>
-                      <div className="mt-1 font-display text-2xl text-gradient-gold">{formatCurrency(inv.amount)}</div>
-                    </div>
-                    {inv.status === "pending" ? (
-                      <div className="rounded-full bg-accent px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Pending</div>
-                    ) : inv.status === "capital_withdrawal_requested" ? (
-                      <div className="rounded-full bg-warning/20 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-warning">Withdrawal Requested</div>
-                    ) : (
-                      <div className="rounded-full bg-success/20 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-success">Active</div>
-                    )}
-                  </div>
-
-                  {inv.status !== "pending" && (
-                    <div className="mt-6">
-                      <div className="flex justify-between text-xs">
-                        <span className="text-muted-foreground">Generated Profit</span>
-                        <span className="font-mono font-semibold text-success">+{formatCurrency(earned)}</span>
-                      </div>
-                      
-                      <div className="mt-4 grid grid-cols-2 gap-3">
-                        <div className="rounded-xl border border-border/50 bg-background/40 p-3">
-                          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Next Profit Drop</div>
-                          <div className="mt-1 font-mono text-sm font-semibold">{countdown}</div>
-                        </div>
-                        <div className="rounded-xl border border-border/50 bg-background/40 p-3">
-                          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Status</div>
-                          <div className="mt-1 text-sm font-semibold text-success">Running ({elapsedDays}d)</div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </motion.div>
-              );
-            })}
-          </div>
-        )}
-      </motion.section>
     </motion.div>
   );
 }
+
+function ActivityList({ userId }: { userId?: string }) {
+  const [list, setList] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!userId) return;
+    const load = async () => {
+      const { data } = await supabase
+        .from("transactions")
+        .select("*")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(5);
+      setList(data || []);
+      setLoading(false);
+    };
+    load();
+  }, [userId]);
+
+  if (loading) return <div className="py-5 text-center"><Loader2 className="animate-spin text-primary inline" /></div>;
+  if (list.length === 0) return <div className="py-5 text-center text-xs text-muted-foreground">No recent activity.</div>;
+
+  return (
+    <div className="space-y-5">
+      {list.map((tx) => (
+        <div key={tx.id} className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="grid h-10 w-10 place-items-center rounded-full bg-primary/10 text-primary">
+              <TrendingUp size={18} />
+            </div>
+            <div>
+              <div className="text-sm font-semibold capitalize">{tx.description || tx.type}</div>
+              <div className="text-[10px] text-muted-foreground">{new Date(tx.created_at).toLocaleDateString()}</div>
+            </div>
+          </div>
+          <div className={`font-mono text-sm font-bold ${tx.amount < 0 ? 'text-destructive' : 'text-primary'}`}>
+            {tx.amount < 0 ? '' : '+'}{formatCurrency(tx.amount)}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+

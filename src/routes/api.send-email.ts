@@ -47,7 +47,7 @@ async function sendResend(opts: {
   subject: string;
   html: string;
 }): Promise<Response> {
-  const apiKey = process.env.RESEND_API_KEY;
+  const apiKey = import.meta.env.VITE_RESEND_API_KEY;
   if (!apiKey) throw new Error("RESEND_API_KEY not configured");
   return fetch(RESEND_URL, {
     method: "POST",
@@ -70,7 +70,7 @@ export const Route = createFileRoute("/api/send-email")({
       POST: async ({ request }) => {
         try {
           const body = (await request.json()) as Body;
-          const adminEmail = process.env.ADMIN_NOTIFY_EMAIL || undefined;
+          const adminEmail = import.meta.env.VITE_ADMIN_NOTIFY_EMAIL || undefined;
           const origin = new URL(request.url).origin;
 
           // Resolve user from related record when needed

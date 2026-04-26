@@ -14,9 +14,8 @@ export function Logo({ size = 44, withText = true, className = "" }: Props) {
         <TrendingUp size={iconSize} className="text-primary-foreground" strokeWidth={2.5} />
       </div>
       {withText && (
-        <div className="leading-tight">
-          <div className="font-display text-xl tracking-wide text-gradient-gold">Expert</div>
-          <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Invests</div>
+        <div className="font-display text-lg lg:text-xl font-bold tracking-tight text-white flex items-center">
+          Expert<span className="text-primary">Invest</span>
         </div>
       )}
     </div>

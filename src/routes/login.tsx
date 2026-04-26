@@ -1,8 +1,10 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import * as React from "react";
 import { useEffect, useState } from "react";
 import { Logo } from "@/components/Logo";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 
@@ -22,7 +24,7 @@ const stagger = {
 
 function LoginPage() {
   const navigate = useNavigate();
-  const { user, isAdmin, loading, mockLogin } = useAuth();
+  const { user, loading } = useAuth();
   const [show, setShow] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -38,15 +40,23 @@ function LoginPage() {
     e.preventDefault();
     setSubmitting(true);
     
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    // Bypass Supabase and use mock login
-    mockLogin(email);
-    
-    setSubmitting(false);
-    toast.success("Successfully logged in");
-    navigate({ to: "/dashboard", replace: true });
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        toast.error(error.message);
+      } else {
+        toast.success("Successfully logged in");
+        navigate({ to: "/dashboard", replace: true });
+      }
+    } catch (err: any) {
+      toast.error(err.message || "An error occurred");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (

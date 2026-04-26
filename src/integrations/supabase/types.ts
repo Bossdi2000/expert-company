@@ -105,6 +105,7 @@ export type Database = {
           duration_days: number
           ends_at: string
           id: string
+          is_referral_paid: boolean
           plan_id: string
           started_at: string
           status: string
@@ -117,6 +118,7 @@ export type Database = {
           duration_days: number
           ends_at: string
           id?: string
+          is_referral_paid?: boolean
           plan_id: string
           started_at?: string
           status?: string
@@ -129,6 +131,7 @@ export type Database = {
           duration_days?: number
           ends_at?: string
           id?: string
+          is_referral_paid?: boolean
           plan_id?: string
           started_at?: string
           status?: string
@@ -219,6 +222,9 @@ export type Database = {
           email: string | null
           full_name: string | null
           id: string
+          referral_count: number
+          referral_earnings: number
+          referred_by: string | null
           total_invested: number
           total_profit: number
           updated_at: string
@@ -231,6 +237,9 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id: string
+          referral_count?: number
+          referral_earnings?: number
+          referred_by?: string | null
           total_invested?: number
           total_profit?: number
           updated_at?: string
@@ -243,6 +252,9 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id?: string
+          referral_count?: number
+          referral_earnings?: number
+          referred_by?: string | null
           total_invested?: number
           total_profit?: number
           updated_at?: string
@@ -266,6 +278,36 @@ export type Database = {
           created_at?: string
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      transactions: {
+        Row: {
+          amount: number
+          created_at: string
+          description: string | null
+          id: string
+          status: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          status?: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          status?: string
+          type?: string
           user_id?: string
         }
         Relationships: []
@@ -317,152 +359,37 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      process_daily_rewards: {
+        Args: Record<string, never>
+        Returns: void
+      }
+      award_referral_commission: {
+        Args: { _investment_id: string }
+        Returns: void
+      }
       admin_credit_deposit: {
         Args: { _deposit_id: string }
-        Returns: {
-          amount: number
-          created_at: string
-          expires_at: string
-          id: string
-          network: string
-          notes: string | null
-          reviewed_at: string | null
-          reviewed_by: string | null
-          status: string
-          token: string
-          user_id: string
-          wallet_address: string
-          wallet_id: string | null
-        }
-        SetofOptions: {
-          from: "*"
-          to: "deposits"
-          isOneToOne: true
-          isSetofReturn: false
-        }
+        Returns: void
       }
       admin_reject_deposit: {
         Args: { _deposit_id: string; _reason?: string }
-        Returns: {
-          amount: number
-          created_at: string
-          expires_at: string
-          id: string
-          network: string
-          notes: string | null
-          reviewed_at: string | null
-          reviewed_by: string | null
-          status: string
-          token: string
-          user_id: string
-          wallet_address: string
-          wallet_id: string | null
-        }
-        SetofOptions: {
-          from: "*"
-          to: "deposits"
-          isOneToOne: true
-          isSetofReturn: false
-        }
+        Returns: void
       }
-      admin_review_withdrawal: {
-        Args: { _approve: boolean; _id: string; _reason?: string }
-        Returns: {
-          amount: number
-          created_at: string
-          destination_address: string
-          id: string
-          network: string
-          notes: string | null
-          reviewed_at: string | null
-          reviewed_by: string | null
-          status: string
-          token: string
-          user_id: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "withdrawals"
-          isOneToOne: true
-          isSetofReturn: false
-        }
+      admin_approve_withdrawal: {
+        Args: { _withdrawal_id: string }
+        Returns: void
+      }
+      admin_reject_withdrawal: {
+        Args: { _reason: string; _withdrawal_id: string }
+        Returns: void
       }
       admin_update_user: {
         Args: { _balance: number; _roi_bonus: number; _user_id: string }
-        Returns: {
-          balance: number
-          country: string | null
-          created_at: string
-          custom_roi_bonus: number
-          email: string | null
-          full_name: string | null
-          id: string
-          total_invested: number
-          total_profit: number
-          updated_at: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "profiles"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      assign_deposit_wallet: {
-        Args: { _amount: number; _network: string; _token: string }
-        Returns: {
-          amount: number
-          created_at: string
-          expires_at: string
-          id: string
-          network: string
-          notes: string | null
-          reviewed_at: string | null
-          reviewed_by: string | null
-          status: string
-          token: string
-          user_id: string
-          wallet_address: string
-          wallet_id: string | null
-        }
-        SetofOptions: {
-          from: "*"
-          to: "deposits"
-          isOneToOne: true
-          isSetofReturn: false
-        }
+        Returns: void
       }
       create_investment: {
         Args: { _amount: number; _plan_id: string }
-        Returns: {
-          amount: number
-          created_at: string
-          daily_roi_pct: number
-          duration_days: number
-          ends_at: string
-          id: string
-          plan_id: string
-          started_at: string
-          status: string
-          user_id: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "investments"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
-      }
-      investment_profit: {
-        Args: { _inv: Database["public"]["Tables"]["investments"]["Row"] }
-        Returns: number
+        Returns: void
       }
       request_withdrawal: {
         Args: {
@@ -471,25 +398,7 @@ export type Database = {
           _network: string
           _token: string
         }
-        Returns: {
-          amount: number
-          created_at: string
-          destination_address: string
-          id: string
-          network: string
-          notes: string | null
-          reviewed_at: string | null
-          reviewed_by: string | null
-          status: string
-          token: string
-          user_id: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "withdrawals"
-          isOneToOne: true
-          isSetofReturn: false
-        }
+        Returns: Database["public"]["Tables"]["withdrawals"]["Row"]
       }
     }
     Enums: {

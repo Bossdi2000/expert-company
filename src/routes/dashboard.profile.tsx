@@ -3,7 +3,7 @@ import { Mail, Globe, CalendarDays, Shield, Wallet, Loader2 } from "lucide-react
 import { formatCurrency, formatDate } from "@/lib/format";
 import { useAuth } from "@/lib/auth";
 import { useState } from "react";
-import { mockService } from "@/lib/mock-service";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/dashboard/profile")({
@@ -27,11 +27,29 @@ function ProfilePage() {
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return;
     setUpdating(true);
-    await mockService.updateProfile(form);
-    await refreshProfile();
-    setUpdating(false);
-    toast.success("Profile updated successfully");
+    
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          full_name: form.full_name,
+          username: form.username,
+          phone: form.phone,
+          country: form.country
+        })
+        .eq("id", user.id);
+
+      if (error) throw error;
+      
+      await refreshProfile();
+      toast.success("Profile updated successfully");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update profile");
+    } finally {
+      setUpdating(false);
+    }
   };
 
   return (
@@ -115,3 +133,4 @@ function ProfilePage() {
     </div>
   );
 }
+

@@ -28,13 +28,13 @@ type Inv = {
   daily_roi_percent: number;
   status: string;
   started_at: string;
+  last_reward_at: string;
   plans: { name: string } | null;
 };
 
 const COINS = [
   { id: "usdt-trc20", name: "USDT", network: "TRC-20" },
-  { id: "usdt-evm", name: "USDT", network: "EVM (ERC20/BEP20)" },
-  { id: "usdc-evm", name: "USDC", network: "EVM (ERC20/BEP20)" },
+  { id: "evm", name: "USDT/USDC", network: "EVM (ERC20/BEP20)" },
   { id: "balance", name: "Account Balance", network: "Internal Reinvestment" },
 ];
 
@@ -49,6 +49,7 @@ function InvestPage() {
   const [amount, setAmount] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [investments, setInvestments] = useState<Inv[]>([]);
+  const [pendingDeposits, setPendingDeposits] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(Date.now());
 
@@ -69,6 +70,15 @@ function InvestPage() {
         .order("created_at", { ascending: false });
       setInvestments((invData as any[]) || []);
 
+      // Load pending deposits
+      const { data: depData } = await supabase
+        .from("deposits")
+        .select("*, plans:plan_id(name)")
+        .eq("user_id", user.id)
+        .eq("status", "pending")
+        .order("created_at", { ascending: false });
+      setPendingDeposits(depData || []);
+
       // Load plans
       const { data: planData } = await supabase
         .from("plans")
@@ -85,7 +95,7 @@ function InvestPage() {
       if (step === "payment") setTimeLeft(l => Math.max(0, l - 1));
     }, 1000);
     return () => clearInterval(t);
-  }, [user, step]);
+  }, [user, step, view]);
 
   useEffect(() => {
     if (step === "payment" && pickedCoin?.id !== "balance") {
@@ -136,6 +146,24 @@ function InvestPage() {
 
     setSubmitting(true);
     try {
+      let proofUrl = null;
+
+      if (pickedCoin?.id !== "balance" && proofFile) {
+        const fileExt = proofFile.name.split('.').pop();
+        const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('proof')
+          .upload(fileName, proofFile);
+
+        if (uploadError) throw uploadError;
+        
+        const { data: { publicUrl } } = supabase.storage
+          .from('proof')
+          .getPublicUrl(fileName);
+        
+        proofUrl = publicUrl;
+      }
+
       if (pickedCoin?.id === "balance") {
         // Internal Reinvestment via RPC
         const { error } = await supabase.rpc("create_investment", {
@@ -152,7 +180,9 @@ function InvestPage() {
           token: pickedCoin!.name,
           network: pickedCoin!.network,
           wallet_address: assignedWallet,
-          status: "pending"
+          status: "pending",
+          proof_url: proofUrl,
+          plan_id: pickedPlan.id
         });
         if (error) throw error;
       }
@@ -187,51 +217,127 @@ function InvestPage() {
             <div className="grid gap-6">
               {loading ? (
                 <div className="grid place-items-center py-20"><Loader2 className="animate-spin text-primary" /></div>
-              ) : investments.length === 0 ? (
-                <div className="glass rounded-3xl p-10 text-center text-sm text-muted-foreground">No active portfolios. Click above to start.</div>
+              ) : investments.length === 0 && pendingDeposits.length === 0 ? (
+                <div className="glass rounded-3xl p-10 text-center text-sm text-muted-foreground">No active or pending portfolios. Click above to start.</div>
               ) : (
-                investments.map(inv => {
-                  const start = new Date(inv.started_at).getTime();
-                  const totalElapsedMs = now - start;
-                  
-                  const msToNext = 86400000 - (totalElapsedMs % 86400000);
-                  const h = String(Math.floor(msToNext / 3600000)).padStart(2, "0");
-                  const m = String(Math.floor((msToNext % 3600000) / 60000)).padStart(2, "0");
-                  const s = String(Math.floor((msToNext % 60000) / 1000)).padStart(2, "0");
-
-                  return (
-                    <motion.div key={inv.id} className="glass group relative overflow-hidden rounded-[2rem] p-6 border-primary/10">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-display text-xl">{inv.plans?.name || "Plan"}</h3>
-                          <Shield size={16} className="text-primary" />
-                        </div>
-                        <div className="text-[10px] font-bold text-primary uppercase tracking-widest bg-primary/10 px-2 py-0.5 rounded">{inv.status}</div>
+                <>
+                  {/* --- PENDING DEPOSITS --- */}
+                  {pendingDeposits.map(dep => (
+                    <motion.div key={dep.id} className="glass group relative overflow-hidden rounded-[2rem] p-6 border-white/5 bg-white/[0.02] opacity-70">
+                      <div className="absolute top-0 right-0 p-4">
+                         <div className="flex items-center gap-1.5 rounded-full bg-warning/10 px-2 py-0.5 text-[8px] font-black uppercase tracking-widest text-warning border border-warning/20">
+                           <Clock size={10} /> Awaiting Approval
+                         </div>
                       </div>
-                      <div className="mt-1 text-xs text-muted-foreground">Capital: {formatCurrency(inv.amount)}</div>
-
-                      <div className="mt-8 flex items-end justify-between">
-                        <div>
-                          <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Profit Rate</div>
-                          <div className="mt-1 flex items-center gap-2 font-display text-3xl text-gradient-gold">
-                            <TrendingUp size={20} /> {inv.daily_roi_percent}%
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Next Drop</div>
-                          <div className="mt-1 font-mono text-xl text-primary">{h}:{m}:{s}</div>
-                        </div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-display text-xl">{dep.plans?.name || "New Plan"}</h3>
                       </div>
-
+                      <div className="mt-1 text-xs text-muted-foreground">Requested Capital: {formatCurrency(dep.amount)}</div>
                       <div className="mt-6 flex items-center justify-between text-[10px] text-muted-foreground pt-4 border-t border-white/5">
-                        <div>Started: {new Date(inv.started_at).toLocaleDateString()}</div>
-                        <div className="flex items-center gap-1.5">
-                          <Briefcase size={12} /> Active Portfolio
+                        <div>Initiated: {new Date(dep.created_at).toLocaleDateString()}</div>
+                        <div className="flex items-center gap-1.5 italic">
+                          Verifying Payment Proof...
                         </div>
                       </div>
                     </motion.div>
-                  );
-                })
+                  ))}
+
+                  {/* --- ACTIVE INVESTMENTS --- */}
+                  {investments.map(inv => {
+                    const start = new Date(inv.started_at).getTime();
+                    const lastReward = new Date(inv.last_reward_at || inv.started_at).getTime();
+                    
+                    // 24h ROI Countdown
+                    const nextRewardTime = lastReward + (24 * 60 * 60 * 1000);
+                    const rewardRemaining = Math.max(0, nextRewardTime - now);
+                    
+                    // 15-Day Withdrawal Countdown
+                    const withdrawalTime = start + (15 * 24 * 60 * 60 * 1000);
+                    const withdrawalRemaining = Math.max(0, withdrawalTime - now);
+
+                    const rewardHours = Math.floor(rewardRemaining / (1000 * 60 * 60));
+                    const rewardMins = Math.floor((rewardRemaining % (1000 * 60 * 60)) / (1000 * 60));
+                    const rewardSecs = Math.floor((rewardRemaining % (1000 * 60)) / 1000);
+
+                    const withDays = Math.floor(withdrawalRemaining / (1000 * 60 * 60 * 24));
+                    const withHours = Math.floor((withdrawalRemaining % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+
+                    return (
+                      <motion.div key={inv.id} className="glass group relative overflow-hidden rounded-[2rem] p-6 border-primary/20 bg-primary/[0.02]">
+                        <div className="absolute top-0 right-0 p-4">
+                          <div className="flex items-center gap-1.5 rounded-full bg-primary/10 px-2 py-0.5 text-[8px] font-black uppercase tracking-widest text-primary border border-primary/20">
+                            <Shield size={10} /> {inv.status}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          <div className="grid h-12 w-12 place-items-center rounded-2xl bg-primary/10 text-primary">
+                            <TrendingUp size={24} />
+                          </div>
+                          <div>
+                            <h3 className="font-display text-xl">{inv.plans?.name || "Premium Plan"}</h3>
+                            <div className="text-[10px] uppercase tracking-widest text-muted-foreground/60 font-bold">
+                              ROI: {inv.daily_roi_percent}% Daily
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="mt-8 grid grid-cols-2 gap-4">
+                          <div className="space-y-1.5">
+                            <div className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-muted-foreground">
+                              <Clock size={10} /> Next Profit Drop
+                            </div>
+                            <div className="font-display text-xl tracking-tighter text-white">
+                              {rewardRemaining > 0 ? (
+                                <>{rewardHours}h {rewardMins}m {rewardSecs}s</>
+                              ) : (
+                                <span className="text-primary animate-pulse italic">Dropping...</span>
+                              )}
+                            </div>
+                            <div className="h-1 w-full overflow-hidden rounded-full bg-white/5">
+                              <motion.div 
+                                className="h-full bg-primary shadow-gold"
+                                initial={{ width: 0 }}
+                                animate={{ width: `${(1 - rewardRemaining / (24 * 60 * 60 * 1000)) * 100}%` }}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <div className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-muted-foreground">
+                              <Shield size={10} /> Withdrawal Unlock
+                            </div>
+                            <div className="font-display text-xl tracking-tighter text-white">
+                              {withdrawalRemaining > 0 ? (
+                                <>{withDays}d {withHours}h</>
+                              ) : (
+                                <span className="text-success italic">Unlocked</span>
+                              )}
+                            </div>
+                            <div className="h-1 w-full overflow-hidden rounded-full bg-white/5">
+                              <motion.div 
+                                className="h-full bg-success shadow-success/50"
+                                initial={{ width: 0 }}
+                                animate={{ width: `${Math.min(100, (1 - withdrawalRemaining / (15 * 24 * 60 * 60 * 1000)) * 100)}%` }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="mt-8 flex items-center justify-between pt-6 border-t border-white/5">
+                          <div>
+                            <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-muted-foreground/40">Portfolio Value</div>
+                            <div className="font-display text-lg text-primary">{formatCurrency(inv.amount)}</div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-muted-foreground/40">Total Earned</div>
+                            <div className="font-display text-lg text-success">+{formatCurrency((inv as any).total_earnings || 0)}</div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </>
               )}
             </div>
           </motion.div>
@@ -396,3 +502,4 @@ function InvestPage() {
   );
 }
 
+export default InvestPage;

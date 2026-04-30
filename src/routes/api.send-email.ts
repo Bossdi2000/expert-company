@@ -12,7 +12,8 @@ type EmailKind =
   | "deposit_rejected"
   | "withdrawal_requested"
   | "withdrawal_approved"
-  | "withdrawal_rejected";
+  | "withdrawal_rejected"
+  | "send_otp";
 
 type Body = {
   kind: EmailKind;
@@ -21,6 +22,7 @@ type Body = {
   withdrawal_id?: string;
   amount?: string | number;
   token?: string;
+  code?: string;
 };
 
 const layout = (title: string, body: string) => `
@@ -69,7 +71,10 @@ export const Route = createFileRoute("/api/send-email")({
     handlers: {
       POST: async ({ request }) => {
         try {
-          const body = (await request.json()) as Body;
+          const reqBody = await request.text();
+          if (!reqBody) throw new Error("Empty request body");
+          const body = JSON.parse(reqBody) as Body;
+
           const adminEmail = import.meta.env.VITE_ADMIN_NOTIFY_EMAIL || undefined;
           const origin = new URL(request.url).origin;
 
@@ -79,7 +84,9 @@ export const Route = createFileRoute("/api/send-email")({
           let amount = body.amount?.toString();
           let token = body.token;
 
-          if (body.deposit_id) {
+          if (body.kind === "send_otp") {
+            userEmail = body.user_id; // For OTP, we pass the email as user_id
+          } else if (body.deposit_id) {
             const { data: dep } = await supabaseAdmin
               .from("deposits")
               .select("amount, token, user_id")
@@ -141,6 +148,29 @@ export const Route = createFileRoute("/api/send-email")({
                        <p style="font-size:14px;line-height:1.6;color:#3a4744;">Your Expert Invests account is live. Start by funding your wallet and pick a plan that fits your goals — from <b>Silver (3%/day)</b> all the way up to <b>Diamond (20%/day)</b>.</p>
                        <p style="margin:24px 0;">${dashboardCta}</p>
                        <p style="font-size:12px;color:#7a8784;">If you have any questions, just reply to this email.</p>`,
+                    ),
+                  }),
+                );
+              }
+              break;
+            }
+            case "send_otp": {
+              if (userEmail) {
+                sends.push(
+                  sendResend({
+                    to: userEmail,
+                    subject: `[Expert Invests] Your Verification Code: ${body.code}`,
+                    html: layout(
+                      "Expert Invests",
+                      `<p style="font-size:14px;line-height:1.6;color:#3a4744;">Hello,</p>
+                       <p style="font-size:14px;line-height:1.6;color:#3a4744;">To finish creating your account, please use the 6-digit security code below:</p>
+                       <div style="margin:32px 0;text-align:center;">
+                         <div style="display:inline-block;padding:16px 32px;background:#f0fdf4;border:2px dashed ${BRAND};border-radius:16px;font-family:monospace;font-size:32px;font-weight:800;letter-spacing:0.2em;color:${BRAND};">
+                           ${body.code}
+                         </div>
+                       </div>
+                       <p style="font-size:14px;line-height:1.6;color:#3a4744;font-weight:bold;text-align:center;">Security Notice:</p>
+                       <p style="font-size:12px;color:#7a8784;text-align:center;">This code will expire in 10 minutes. If you did not request this code, please ignore this email.</p>`,
                     ),
                   }),
                 );
@@ -276,16 +306,21 @@ export const Route = createFileRoute("/api/send-email")({
             }
           }
 
-          await Promise.allSettled(sends);
+          const results = await Promise.allSettled(sends);
+          const hasError = results.some(r => r.status === 'rejected');
 
-          return new Response(JSON.stringify({ ok: true, sent: sends.length }), {
-            status: 200,
+          return new Response(JSON.stringify({ ok: !hasError, sent: sends.length }), {
+            status: hasError ? 500 : 200,
             headers: { "Content-Type": "application/json" },
           });
         } catch (err: any) {
+          console.error("Email API Error:", err);
           return new Response(
-            JSON.stringify({ ok: false, error: err?.message ?? "Unknown error" }),
-            { status: 500, headers: { "Content-Type": "application/json" } },
+            JSON.stringify({ ok: false, error: err?.message || "Internal Server Error" }),
+            { 
+              status: 500, 
+              headers: { "Content-Type": "application/json" } 
+            },
           );
         }
       },

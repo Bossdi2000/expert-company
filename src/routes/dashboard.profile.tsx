@@ -74,7 +74,7 @@ function ProfilePage() {
             </div>
             <div className="text-right">
               <div className="text-xs uppercase tracking-wider text-muted-foreground">Total balance</div>
-              <div className="font-display text-2xl text-gradient-gold">{formatCurrency(profile.balance)}</div>
+              <div className="font-display text-2xl text-gradient-gold">{formatCurrency((profile.total_invested || 0) + (profile.profit_balance || 0))}</div>
             </div>
           </div>
         </div>

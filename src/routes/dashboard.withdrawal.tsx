@@ -49,15 +49,42 @@ function WithdrawalPage() {
   const [submitting, setSubmitting] = useState(false);
   const [history, setHistory] = useState<Withdrawal[]>([]);
   const [loading, setLoading] = useState(true);
+  const [investments, setInvestments] = useState<any[]>([]);
+  const [withdrawableProfit, setWithdrawableProfit] = useState(0);
+  const [lockedProfit, setLockedProfit] = useState(0);
 
   const fetchHistory = async () => {
     if (!user) return;
-    const { data } = await supabase
+    const { data: wdData } = await supabase
       .from("withdrawals")
       .select("*")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
-    setHistory(data || []);
+    setHistory(wdData || []);
+
+    const { data: invData } = await supabase
+      .from("investments")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("status", "active");
+    
+    setInvestments(invData || []);
+    
+    let wp = 0;
+    let lp = 0;
+    const fifteenDaysAgo = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000);
+    
+    (invData || []).forEach(inv => {
+      const started = new Date(inv.started_at);
+      if (started <= fifteenDaysAgo) {
+        wp += Number(inv.total_earnings || 0);
+      } else {
+        lp += Number(inv.total_earnings || 0);
+      }
+    });
+    
+    setWithdrawableProfit(wp);
+    setLockedProfit(lp);
     setLoading(false);
   };
 
@@ -68,9 +95,8 @@ function WithdrawalPage() {
   const handleWithdraw = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
-    if (!amount || !address) return toast.error("Please fill all fields");
-    if (Number(amount) < 10) return toast.error("Minimum withdrawal is $10");
-    if (Number(amount) > (profile?.balance || 0)) return toast.error("Insufficient profit balance");
+    const available = (profile?.referral_earnings || 0) + withdrawableProfit;
+    if (Number(amount) > available) return toast.error("Insufficient withdrawable balance");
     
     setSubmitting(true);
     try {
@@ -104,26 +130,29 @@ function WithdrawalPage() {
       </header>
 
       {/* --- STAT CARDS --- */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="glass rounded-3xl p-5 border-white/5 bg-[#0d0d0d]/60">
-          <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-wider text-primary mb-4">
-            <TrendingUp size={10} /> Profit Balance
+      <div className="grid grid-cols-3 gap-3">
+        <div className="glass rounded-2xl p-4 border-white/5 bg-[#0d0d0d]/60">
+          <div className="text-[8px] font-black uppercase tracking-wider text-primary mb-2 flex items-center gap-1">
+            <TrendingUp size={8} /> Available
           </div>
-          <div className="font-display text-xl font-bold text-white mb-2">{formatCurrency(profile?.balance || 0)}</div>
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-1.5 text-[10px] font-bold text-primary">
-              <CheckCircle2 size={10} /> Available
-            </div>
-            <div className="text-[10px] font-bold text-primary italic opacity-70">{formatCurrency(profile?.balance || 0)}</div>
-          </div>
+          <div className="font-display text-lg font-bold text-white">{formatCurrency((profile?.referral_earnings || 0) + withdrawableProfit)}</div>
+          <div className="text-[8px] text-muted-foreground mt-1">Ready to withdraw</div>
         </div>
 
-        <div className="glass rounded-3xl p-5 border-white/5 bg-[#0d0d0d]/60">
-          <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-wider text-primary mb-4">
-            <ShieldCheck size={10} /> Capital
+        <div className="glass rounded-2xl p-4 border-white/5 bg-[#0d0d0d]/60">
+          <div className="text-[8px] font-black uppercase tracking-wider text-warning mb-2 flex items-center gap-1">
+            <Clock size={8} /> Locked
           </div>
-          <div className="font-display text-xl font-bold text-white mb-2">{formatCurrency(profile?.total_invested || 0)}</div>
-          <div className="text-[10px] font-bold text-primary italic mt-1">30 Days Period</div>
+          <div className="font-display text-lg font-bold text-white">{formatCurrency(lockedProfit)}</div>
+          <div className="text-[8px] text-muted-foreground mt-1">ROI &lt; 15 days</div>
+        </div>
+
+        <div className="glass rounded-2xl p-4 border-white/5 bg-[#0d0d0d]/60">
+          <div className="text-[8px] font-black uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1">
+            <ShieldCheck size={8} /> Capital
+          </div>
+          <div className="font-display text-lg font-bold text-white">{formatCurrency(profile?.total_invested || 0)}</div>
+          <div className="text-[8px] text-muted-foreground mt-1">30 days lock</div>
         </div>
       </div>
 
@@ -209,10 +238,10 @@ function WithdrawalPage() {
         </div>
         <div className="space-y-4">
           {[
-            { label: "Limit", value: "$5,000.00 daily" },
-            { label: "Fee", value: "2% flat" },
-            { label: "Profit", value: "Withdraw Anytime" },
+            { label: "Withdraw ROI", value: "After 15 Days" },
+            { label: "Referrals", value: "Withdraw Anytime" },
             { label: "Capital", value: "30 Days Lock" },
+            { label: "Fee", value: "2% flat" },
           ].map((item, i) => (
             <div key={i} className="flex flex-col gap-1">
               <div className="text-[10px] font-bold text-muted-foreground/60">{item.label}: <span className="text-white ml-1">{item.value}</span></div>

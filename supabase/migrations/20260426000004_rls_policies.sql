@@ -32,6 +32,11 @@ USING (public.has_role(auth.uid(), 'admin'))
 WITH CHECK (public.has_role(auth.uid(), 'admin'));
 
 -- 4. USER ROLES
+-- Allow users to read their own roles
+CREATE POLICY "user_read_own_roles" ON public.user_roles
+FOR SELECT TO authenticated
+USING (user_id = auth.uid());
+
 -- Allow admins to manage roles
 CREATE POLICY "admin_manage_roles" ON public.user_roles
 FOR ALL TO authenticated

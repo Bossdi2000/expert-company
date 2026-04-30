@@ -33,7 +33,19 @@ function SignupPage() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [referredBy, setReferredBy] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  // OTP State
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpInput, setOtpInput] = useState("");
+  const [verifying, setVerifying] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get("ref");
+    if (ref) setReferredBy(ref);
+  }, []);
 
   useEffect(() => {
     if (user && !loading) {
@@ -59,14 +71,68 @@ function SignupPage() {
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password.length < 6) {
-      toast.error("Password must be at least 6 characters");
-      return;
-    }
-    setSubmitting(true);
+    if (password.length < 6) return toast.error("Password must be at least 6 characters");
     
+    setSubmitting(true);
     try {
-      const { data, error } = await supabase.auth.signUp({
+      // 1. Generate 6-digit OTP
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiresAt = new Date(Date.now() + 10 * 60000).toISOString(); // 10 mins
+
+      // 2. Store in DB
+      const { error: dbError } = await supabase
+        .from("otp_verifications")
+        .upsert({ email, code, expires_at: expiresAt });
+
+      if (dbError) throw dbError;
+
+      // 3. Send Email
+      const res = await fetch("/api/send-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          kind: "send_otp",
+          user_id: email, // Passing email as user_id for the handler
+          code
+        })
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || "Failed to send verification email");
+      }
+
+      setOtpSent(true);
+      toast.success("Verification code sent to your email!");
+    } catch (err: any) {
+      toast.error(err.message || "Something went wrong");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const verifyAndCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (otpInput.length !== 6) return toast.error("Please enter the 6-digit code");
+
+    setVerifying(true);
+    try {
+      // 1. Check OTP in DB
+      const { data, error } = await supabase
+        .from("otp_verifications")
+        .select("*")
+        .eq("email", email)
+        .eq("code", otpInput)
+        .gte("expires_at", new Date().toISOString())
+        .maybeSingle();
+
+      if (error || !data) throw new Error("Invalid or expired verification code");
+
+      // 2. Clear OTP
+      await supabase.from("otp_verifications").delete().eq("email", email);
+
+      // 3. Create User in Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -74,26 +140,24 @@ function SignupPage() {
             full_name: fullName,
             username: username,
             country: country,
-            phone: phone
+            phone: phone,
+            referred_by: referredBy
           }
         }
       });
 
-      if (error) {
-        toast.error(error.message);
+      if (authError) throw authError;
+
+      toast.success("Account created successfully!");
+      if (authData.session) {
+        navigate({ to: "/dashboard", replace: true });
       } else {
-        if (data.session) {
-          toast.success("Account created successfully!");
-          navigate({ to: "/dashboard", replace: true });
-        } else {
-          toast.success("Account created! You can now sign in.");
-          navigate({ to: "/login", replace: true });
-        }
+        navigate({ to: "/login", replace: true });
       }
     } catch (err: any) {
-      toast.error(err.message || "An error occurred");
+      toast.error(err.message || "Verification failed");
     } finally {
-      setSubmitting(false);
+      setVerifying(false);
     }
   };
 
@@ -110,105 +174,101 @@ function SignupPage() {
           initial="hidden"
           animate="visible"
           variants={stagger}
-          className="mt-8 rounded-3xl glass p-8 shadow-emerald"
+          className="mt-8 rounded-3xl glass p-8 shadow-emerald min-h-[400px] flex flex-col justify-center"
         >
-          <motion.div variants={fadeUp}>
-            <h1 className="font-display text-3xl">Open your account</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Join 84,000+ investors compounding wealth daily.
-            </p>
-          </motion.div>
+          {!otpSent ? (
+            <>
+              <motion.div variants={fadeUp}>
+                <h1 className="font-display text-3xl">Open your account</h1>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Join 84,000+ investors compounding wealth daily.
+                </p>
+              </motion.div>
 
-          <form onSubmit={onSubmit} className="mt-8 space-y-5">
-            <motion.div variants={fadeUp}>
-              <Field label="Full name">
+              <form onSubmit={onSubmit} className="mt-8 space-y-5">
+                <motion.div variants={fadeUp}>
+                  <Field label="Full name">
+                    <input required value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="John Doe" className={inputCls} />
+                  </Field>
+                </motion.div>
+                <motion.div variants={fadeUp}>
+                  <Field label="Username">
+                    <input required value={username} onChange={(e) => setUsername(e.target.value)} placeholder="johndoe" className={inputCls} />
+                  </Field>
+                </motion.div>
+                <motion.div variants={fadeUp}>
+                  <Field label="Email">
+                    <input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@email.com" className={inputCls} />
+                  </Field>
+                </motion.div>
+                <motion.div variants={fadeUp}>
+                  <Field label="Password">
+                    <div className="relative">
+                      <input required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} type={show ? "text" : "password"} placeholder="••••••••" className={inputCls} />
+                      <button type="button" onClick={() => setShow(!show)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary">
+                        {show ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                  </Field>
+                </motion.div>
+                <motion.div variants={fadeUp} className="grid gap-5 sm:grid-cols-2">
+                  <Field label="Country">
+                    <CountryPicker value={country} onChange={setCountry} />
+                  </Field>
+                  <Field label="Phone number">
+                    <input required type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+1 234 567 890" className={inputCls} />
+                  </Field>
+                </motion.div>
+                <motion.div variants={fadeUp}>
+                  <Field label="Referred by (Optional)">
+                    <input value={referredBy} onChange={(e) => setReferredBy(e.target.value)} placeholder="Username of referrer" className={inputCls} />
+                  </Field>
+                </motion.div>
+
+                <motion.div variants={fadeUp} className="pt-2">
+                  <button disabled={submitting} type="submit" className="flex w-full items-center justify-center gap-2 rounded-full bg-gradient-gold py-3.5 text-sm font-semibold text-primary-foreground shadow-gold">
+                    {submitting && <Loader2 size={14} className="animate-spin" />}
+                    {submitting ? "Sending code…" : "Create account"}
+                  </button>
+                </motion.div>
+              </form>
+            </>
+          ) : (
+            <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="text-center">
+              <div className="mx-auto mb-6 grid h-16 w-16 place-items-center rounded-2xl bg-primary/10 text-primary">
+                <CheckCircle2 size={32} />
+              </div>
+              <h2 className="font-display text-2xl">Verify your email</h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                We've sent a 6-digit code to <br /><b className="text-foreground">{email}</b>
+              </p>
+
+              <form onSubmit={verifyAndCreate} className="mt-8 space-y-6">
                 <input
                   required
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="John Doe"
-                  className={inputCls}
+                  maxLength={6}
+                  value={otpInput}
+                  onChange={(e) => setOtpInput(e.target.value.replace(/\D/g, ""))}
+                  placeholder="000 000"
+                  className="w-full bg-transparent text-center font-display text-4xl tracking-[0.5em] outline-none placeholder:text-muted-foreground/20"
+                  autoFocus
                 />
-              </Field>
-            </motion.div>
-            <motion.div variants={fadeUp}>
-              <Field label="Username">
-                <input
-                  required
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="johndoe"
-                  className={inputCls}
-                />
-              </Field>
-            </motion.div>
-            <motion.div variants={fadeUp}>
-              <Field label="Email">
-                <input
-                  required
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@email.com"
-                  className={inputCls}
-                />
-              </Field>
-            </motion.div>
-            <motion.div variants={fadeUp}>
-              <Field label="Password">
-                <div className="relative">
-                  <input
-                    required
-                    minLength={6}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    type={show ? "text" : "password"}
-                    placeholder="••••••••"
-                    className={inputCls}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShow(!show)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-primary"
-                  >
-                    {show ? <EyeOff size={16} /> : <Eye size={16} />}
+                
+                <div className="space-y-3">
+                  <button disabled={verifying} type="submit" className="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3.5 text-sm font-semibold text-primary-foreground shadow-gold">
+                    {verifying && <Loader2 size={14} className="animate-spin" />}
+                    {verifying ? "Verifying…" : "Verify & Create Account"}
+                  </button>
+                  <button type="button" onClick={() => setOtpSent(false)} className="flex w-full items-center justify-center gap-2 text-xs text-muted-foreground hover:text-foreground">
+                    <ArrowLeft size={12} /> Edit email or details
                   </button>
                 </div>
-              </Field>
+              </form>
             </motion.div>
-            <motion.div variants={fadeUp} className="grid gap-5 sm:grid-cols-2">
-              <Field label="Country">
-                <CountryPicker value={country} onChange={setCountry} />
-              </Field>
-              <Field label="Phone number">
-                <input
-                  required
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="+1 234 567 890"
-                  className={inputCls}
-                />
-              </Field>
-            </motion.div>
-
-            <motion.div variants={fadeUp} className="pt-2">
-              <button
-                type="submit"
-                disabled={submitting}
-                className="flex w-full items-center justify-center gap-2 rounded-full bg-gradient-gold py-3.5 text-sm font-semibold text-primary-foreground shadow-gold transition-all hover:scale-[1.02] hover:shadow-[0_20px_60px_-15px_oklch(0.78_0.13_85/50%)] disabled:opacity-60 disabled:hover:scale-100"
-              >
-                {submitting && <Loader2 size={14} className="animate-spin" />}
-                {submitting ? "Creating account…" : "Create account"}
-              </button>
-            </motion.div>
-          </form>
+          )}
 
           <motion.p variants={fadeUp} className="mt-6 text-center text-xs text-muted-foreground">
-            Already have an account?{" "}
-            <Link to="/login" className="font-semibold text-primary hover:underline">
-              Sign in
-            </Link>
+            Already have an account? <Link to="/login" className="font-semibold text-primary hover:underline">Sign in</Link>
           </motion.p>
         </motion.div>
       </div>

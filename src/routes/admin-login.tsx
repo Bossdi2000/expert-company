@@ -38,10 +38,9 @@ function AdminLoginPage() {
         .from("user_roles")
         .select("role")
         .eq("user_id", data.user.id)
-        .eq("role", "admin")
         .maybeSingle();
 
-      if (!roleData) {
+      if (!roleData || (roleData.role as string) !== "admin") {
         await supabase.auth.signOut();
         toast.error("Account does not have administrative privileges.");
       } else {

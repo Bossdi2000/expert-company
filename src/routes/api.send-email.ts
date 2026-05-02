@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 const RESEND_URL = "https://api.resend.com/emails";
-const FROM = "Expert Invests <onboarding@resend.dev>";
+const FROM = "Expert Invests <noreply@expertinvest.xyz>";
 const BRAND = "#0d7a5f"; // Emerald Prestige primary
 
 type EmailKind =
@@ -162,8 +162,7 @@ export const Route = createFileRoute("/api/send-email")({
                     subject: `[Expert Invests] Your Verification Code: ${body.code}`,
                     html: layout(
                       "Expert Invests",
-                      `<p style="font-size:14px;line-height:1.6;color:#3a4744;">Hello,</p>
-                       <p style="font-size:14px;line-height:1.6;color:#3a4744;">To finish creating your account, please use the 6-digit security code below:</p>
+                      `<p style="font-size:14px;line-height:1.6;color:#3a4744;">You're welcome to EXPERTINVEST, enter the below OTP to confirm your account creation.</p>
                        <div style="margin:32px 0;text-align:center;">
                          <div style="display:inline-block;padding:16px 32px;background:#f0fdf4;border:2px dashed ${BRAND};border-radius:16px;font-family:monospace;font-size:32px;font-weight:800;letter-spacing:0.2em;color:${BRAND};">
                            ${body.code}

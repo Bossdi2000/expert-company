@@ -128,7 +128,7 @@ export function DashboardShell() {
               </Link>
             </div>
 
-            {/* Mobile Utils (Headset Square, Bell Circle, Divider, Profile Circle) */}
+            {/* Mobile Utils (Headset Square, Bell Circle, Divider, Profile Circle, Logout) */}
             <div className="flex w-full items-center justify-end gap-3 lg:hidden">
               <button 
                 onClick={() => setCareModal(true)} 
@@ -146,6 +146,13 @@ export function DashboardShell() {
               </button>
 
               <div className="h-6 w-[1px] bg-white/10 mx-0.5" />
+
+              <button 
+                onClick={handleSignOut}
+                className="grid h-10 w-10 place-items-center rounded-full border border-red-500/20 bg-red-500/5 text-red-500 transition-all active:scale-95 shadow-[0_0_10px_-2px_rgba(239,68,68,0.1)]"
+              >
+                <LogOut size={18} />
+              </button>
 
               <Link to="/dashboard/profile" className="grid h-10 w-10 place-items-center rounded-full border border-primary/20 bg-white/5 text-muted-foreground transition-all active:scale-95 shadow-[0_0_10px_-2px_oklch(0.7_0.15_70/10%)]">
                 <User size={18} />

@@ -10,7 +10,9 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SignupRouteImport } from './routes/signup'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as AdminLoginRouteImport } from './routes/admin-login'
 import { Route as AdminRouteImport } from './routes/admin'
@@ -35,9 +37,19 @@ const SignupRoute = SignupRouteImport.update({
   path: '/signup',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -136,7 +148,9 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRouteWithChildren
   '/admin-login': typeof AdminLoginRoute
   '/dashboard': typeof DashboardRouteWithChildren
+  '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/admin/deposits': typeof AdminDepositsRoute
   '/admin/history': typeof AdminHistoryRoute
@@ -156,7 +170,9 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin-login': typeof AdminLoginRoute
+  '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/admin/deposits': typeof AdminDepositsRoute
   '/admin/history': typeof AdminHistoryRoute
@@ -179,7 +195,9 @@ export interface FileRoutesById {
   '/admin': typeof AdminRouteWithChildren
   '/admin-login': typeof AdminLoginRoute
   '/dashboard': typeof DashboardRouteWithChildren
+  '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/admin/deposits': typeof AdminDepositsRoute
   '/admin/history': typeof AdminHistoryRoute
@@ -203,7 +221,9 @@ export interface FileRouteTypes {
     | '/admin'
     | '/admin-login'
     | '/dashboard'
+    | '/forgot-password'
     | '/login'
+    | '/reset-password'
     | '/signup'
     | '/admin/deposits'
     | '/admin/history'
@@ -223,7 +243,9 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/admin-login'
+    | '/forgot-password'
     | '/login'
+    | '/reset-password'
     | '/signup'
     | '/admin/deposits'
     | '/admin/history'
@@ -245,7 +267,9 @@ export interface FileRouteTypes {
     | '/admin'
     | '/admin-login'
     | '/dashboard'
+    | '/forgot-password'
     | '/login'
+    | '/reset-password'
     | '/signup'
     | '/admin/deposits'
     | '/admin/history'
@@ -268,7 +292,9 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRouteWithChildren
   AdminLoginRoute: typeof AdminLoginRoute
   DashboardRoute: typeof DashboardRouteWithChildren
+  ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   SignupRoute: typeof SignupRoute
   ApiSendEmailRoute: typeof ApiSendEmailRoute
 }
@@ -282,11 +308,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SignupRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forgot-password': {
+      id: '/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ForgotPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -467,7 +507,9 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRouteWithChildren,
   AdminLoginRoute: AdminLoginRoute,
   DashboardRoute: DashboardRouteWithChildren,
+  ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   SignupRoute: SignupRoute,
   ApiSendEmailRoute: ApiSendEmailRoute,
 }

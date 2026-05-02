@@ -3,7 +3,7 @@ import * as React from "react";
 import { useState, useEffect } from "react";
 import { Logo } from "@/components/Logo";
 import { CountryPicker } from "@/components/CountryPicker";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2, CheckCircle2, ArrowLeft } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -131,18 +131,23 @@ function SignupPage() {
       // 2. Clear OTP
       await supabase.from("otp_verifications").delete().eq("email", email);
 
+      const userData: any = {
+        full_name: fullName,
+        username: username,
+        country: country,
+        phone: phone,
+      };
+      
+      if (referredBy.trim() !== "") {
+        userData.referred_by = referredBy.trim();
+      }
+
       // 3. Create User in Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          data: {
-            full_name: fullName,
-            username: username,
-            country: country,
-            phone: phone,
-            referred_by: referredBy
-          }
+          data: userData
         }
       });
 

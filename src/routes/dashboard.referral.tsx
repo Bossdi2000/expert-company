@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { 
   Users, 
@@ -22,7 +22,7 @@ export const Route = createFileRoute("/dashboard/referral")({
 
 function ReferralPage() {
   const { profile } = useAuth();
-  const referralLink = `https://expertinvest.com/signup?ref=${profile?.username || 'user'}`;
+  const referralLink = `https://expertinvest.xyz/signup?ref=${profile?.username || 'user'}`;
 
   const copyLink = () => {
     navigator.clipboard.writeText(referralLink);
@@ -105,6 +105,66 @@ function ReferralPage() {
           </div>
         ))}
       </section>
+      {/* --- REFERRED USERS LIST --- */}
+      <section className="glass rounded-[2.5rem] p-8 lg:p-12 border-white/5 bg-[#0a0a0a]/40">
+        <h2 className="text-2xl font-display font-bold mb-8">Your Network</h2>
+        <ReferralList />
+      </section>
+    </div>
+  );
+}
+
+function ReferralList() {
+  const [referrals, setReferrals] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchReferrals() {
+      // @ts-ignore - RPC will be created in Supabase
+      const { data } = await import("@/integrations/supabase/client").then(m => m.supabase.rpc('get_my_referrals'));
+      if (data) setReferrals(data);
+      setLoading(false);
+    }
+    fetchReferrals();
+  }, []);
+
+  if (loading) {
+    return <div className="text-sm text-muted-foreground animate-pulse">Loading network data...</div>;
+  }
+
+  if (referrals.length === 0) {
+    return (
+      <div className="text-center py-10">
+        <div className="mx-auto w-12 h-12 rounded-full border border-white/10 bg-white/5 flex items-center justify-center text-muted-foreground mb-4">
+          <Users size={20} />
+        </div>
+        <p className="text-sm text-muted-foreground">You haven't referred anyone yet.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto custom-scrollbar">
+      <table className="w-full text-left text-sm">
+        <thead>
+          <tr className="border-b border-white/5 text-muted-foreground">
+            <th className="pb-4 font-medium px-4">Username</th>
+            <th className="pb-4 font-medium px-4">Date Joined</th>
+            <th className="pb-4 font-medium px-4">Total Invested</th>
+            <th className="pb-4 font-medium px-4">Bonus Earned</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-white/5">
+          {referrals.map((ref, i) => (
+            <tr key={i} className="hover:bg-white/5 transition-colors">
+              <td className="py-4 px-4 font-semibold">{ref.username}</td>
+              <td className="py-4 px-4 text-muted-foreground">{new Date(ref.created_at).toLocaleDateString()}</td>
+              <td className="py-4 px-4 text-white">{formatCurrency(ref.total_invested)}</td>
+              <td className="py-4 px-4 text-emerald font-bold">{formatCurrency(ref.bonus_earned)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

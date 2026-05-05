@@ -145,7 +145,7 @@ export const Route = createFileRoute("/api/send-email")({
                     html: layout(
                       "Welcome aboard 👑",
                       `<p style="font-size:14px;line-height:1.6;color:#3a4744;">${greet}</p>
-                       <p style="font-size:14px;line-height:1.6;color:#3a4744;">Your Expert Invests account is live. Start by funding your wallet and pick a plan that fits your goals — from <b>Silver (3%/day)</b> all the way up to <b>Diamond (20%/day)</b>.</p>
+                       <p style="font-size:14px;line-height:1.6;color:#3a4744;">Your Expert Invests account is live. Start by funding your wallet and pick a plan that fits your goals — from <b>Starter (1%/day)</b> all the way up to <b>Royal (7%/day)</b>.</p>
                        <p style="margin:24px 0;">${dashboardCta}</p>
                        <p style="font-size:12px;color:#7a8784;">If you have any questions, just reply to this email.</p>`,
                     ),

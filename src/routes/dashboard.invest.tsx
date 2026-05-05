@@ -275,7 +275,7 @@ function InvestPage() {
                             <TrendingUp size={24} />
                           </div>
                           <div>
-                            <h3 className="font-display text-xl">{inv.plans?.name || "Premium Plan"}</h3>
+                            <h3 className="font-display text-xl">{inv.plans?.name || "Investment Plan"}</h3>
                             <div className="text-[10px] uppercase tracking-widest text-muted-foreground/60 font-bold">
                               ROI: {inv.daily_roi_percent}% Daily
                             </div>

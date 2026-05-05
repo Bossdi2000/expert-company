@@ -4,6 +4,7 @@ import { Search, Edit3, Trash2, X, Check, Loader2, ShieldCheck } from "lucide-re
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/format";
 import { toast } from "sonner";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/admin/users")({
   head: () => ({ meta: [{ title: "Users — Admin" }] }),
@@ -32,6 +33,7 @@ function AdminUsersPage() {
   const [fundingType, setFundingType] = useState<"plan" | "reward">("plan");
   const [plans, setPlans] = useState<any[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const { user: currentUser } = useAuth();
 
   const fundUser = users.find((u) => u.id === fundingId);
 
@@ -61,11 +63,27 @@ function AdminUsersPage() {
   const editUser = users.find((u) => u.id === editingId);
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Permanently delete this user profile? Auth account remains.")) return;
-    const { error } = await supabase.from("profiles").delete().eq("id", id);
-    if (error) return toast.error(error.message);
-    toast.success("User profile deleted");
-    setUsers(users.filter((u) => u.id !== id));
+    if (!currentUser) return;
+    if (!confirm("Are you absolutely sure? This will PERMANENTLY delete the user account from both the database and authentication system. This action cannot be undone.")) return;
+    
+    setLoading(true);
+    try {
+      const response = await fetch('/api/admin-delete-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: id, adminId: currentUser.id })
+      });
+
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Failed to delete user");
+
+      toast.success("User account deleted permanently");
+      setUsers(users.filter((u) => u.id !== id));
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {

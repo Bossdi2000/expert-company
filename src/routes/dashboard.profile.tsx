@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Mail, Globe, CalendarDays, Shield, Wallet, Loader2 } from "lucide-react";
+import { Mail, Globe, CalendarDays, Shield, Wallet, Loader2, CheckCircle2 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { useAuth } from "@/lib/auth";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -25,8 +25,9 @@ function ProfilePage() {
     country: profile.country || ""
   });
 
-  const handleUpdate = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const [lastSaved, setLastSaved] = useState<typeof form>(form);
+
+  const performUpdate = useCallback(async (data: typeof form) => {
     if (!user) return;
     setUpdating(true);
     
@@ -34,29 +35,54 @@ function ProfilePage() {
       const { error } = await supabase
         .from("profiles")
         .update({
-          full_name: form.full_name,
-          username: form.username,
-          phone: form.phone,
-          country: form.country
+          full_name: data.full_name,
+          username: data.username,
+          phone: data.phone,
+          country: data.country
         })
         .eq("id", user.id);
 
       if (error) throw error;
-      
       await refreshProfile();
-      toast.success("Profile updated successfully");
+      setLastSaved(data);
     } catch (err: any) {
       toast.error(err.message || "Failed to update profile");
     } finally {
       setUpdating(false);
     }
-  };
+  }, [user, refreshProfile]);
+
+  useEffect(() => {
+    const hasChanged = JSON.stringify(form) !== JSON.stringify(lastSaved);
+    if (!hasChanged) return;
+
+    const timer = setTimeout(() => {
+      performUpdate(form);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [form, lastSaved, performUpdate]);
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-display text-3xl lg:text-4xl">Your profile</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Manage your account and security.</p>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="font-display text-3xl lg:text-4xl">Your profile</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Manage your account and security.</p>
+        </div>
+        <div className="flex items-center gap-2 rounded-full bg-white/5 px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground transition-all">
+          {updating ? (
+            <>
+              <Loader2 size={12} className="animate-spin text-primary" />
+              <span>Saving changes...</span>
+            </>
+          ) : (
+            <>
+              <CheckCircle2 size={12} className="text-success" />
+              <span>All changes saved</span>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="rounded-3xl bg-gradient-emerald p-1 shadow-emerald">
@@ -99,9 +125,9 @@ function ProfilePage() {
 
       <div className="rounded-3xl glass p-6 lg:p-8">
         <h3 className="font-display text-2xl">Profile Settings</h3>
-        <p className="mt-1 text-sm text-muted-foreground">Update your personal information.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Update your personal information. Changes are saved automatically.</p>
         
-        <form onSubmit={handleUpdate} className="mt-6 grid gap-6 sm:grid-cols-2">
+        <div className="mt-6 grid gap-6 sm:grid-cols-2">
           <div>
             <label className="text-xs font-medium text-foreground/85">Full name</label>
             <input required type="text" value={form.full_name} onChange={e => setForm({...form, full_name: e.target.value})} className="mt-1.5 w-full rounded-xl border border-border bg-background/60 px-4 py-3 text-sm outline-none transition-all focus:border-primary focus:bg-background/90" />
@@ -122,14 +148,9 @@ function ProfilePage() {
             <label className="text-xs font-medium text-foreground/85">Country</label>
             <input type="text" value={form.country} onChange={e => setForm({...form, country: e.target.value})} className="mt-1.5 w-full max-w-sm rounded-xl border border-border bg-background/60 px-4 py-3 text-sm outline-none transition-all focus:border-primary focus:bg-background/90" />
           </div>
-          <div className="sm:col-span-2">
-            <button disabled={updating} className="flex items-center gap-2 rounded-full bg-gradient-gold px-6 py-3 text-sm font-semibold text-primary-foreground shadow-gold disabled:opacity-60">
-              {updating && <Loader2 size={14} className="animate-spin" />}
-              Save changes
-            </button>
-          </div>
-        </form>
+        </div>
       </div>
+
     </div>
   );
 }

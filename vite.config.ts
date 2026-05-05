@@ -4,41 +4,40 @@ import tailwindcss from "@tailwindcss/vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 import { TanStackRouterVite } from "@tanstack/router-plugin/vite";
 
-// Custom Vite plugin to handle /api/send-email locally
+// Custom Vite plugin to handle /api/* locally
 const apiPlugin = (env: Record<string, string>) => ({
   name: 'api-plugin',
   configureServer(server: any) {
-    server.middlewares.use('/api/send-email', (req: any, res: any) => {
-      if (req.method === 'POST') {
-        let body = '';
-        req.on('data', (chunk: any) => { body += chunk.toString(); });
-        req.on('end', async () => {
-          try {
-            const data = JSON.parse(body);
-            const apiKey = env.VITE_RESEND_API_KEY;
-            
+    server.middlewares.use('/api', async (req: any, res: any) => {
+      const url = new URL(req.url!, `http://${req.headers.host}`);
+      const endpoint = url.pathname;
+
+      if (req.method === 'OPTIONS') {
+        res.statusCode = 200;
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+        return res.end();
+      }
+
+      if (req.method !== 'POST') {
+        res.statusCode = 405;
+        return res.end(JSON.stringify({ error: "Method not allowed" }));
+      }
+
+      let body = '';
+      req.on('data', (chunk: any) => { body += chunk.toString(); });
+      req.on('end', async () => {
+        try {
+          const data = JSON.parse(body);
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+
+          if (endpoint === '/send-email') {
+            const apiKey = env.VITE_RESEND_API_KEY || env.RESEND_API_KEY;
             if (!apiKey) {
               res.statusCode = 500;
-              return res.end(JSON.stringify({ error: "VITE_RESEND_API_KEY not found in .env" }));
-            }
-
-            let to = data.user_id || "test@example.com";
-            let subject = "Expert Invests Notification";
-            let html = "<p>Message from Expert Invests</p>";
-            
-            // Extract email content based on kind
-            if (data.kind === "send_otp") {
-              subject = `[Expert Invests] Your Verification Code: ${data.code}`;
-              html = `
-                <div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:20px;border:1px solid #eee;border-radius:10px;">
-                  <h2 style="color:#0d7a5f;text-align:center;">Expert Invests</h2>
-                  <p style="font-size:14px;color:#333;">You're welcome to EXPERTINVEST, enter the below OTP to confirm your account creation.</p>
-                  <div style="text-align:center;margin:30px 0;">
-                    <span style="font-size:32px;font-weight:bold;letter-spacing:5px;color:#0d7a5f;background:#f0fdf4;padding:15px 30px;border-radius:10px;border:2px dashed #0d7a5f;">${data.code}</span>
-                  </div>
-                  <p style="font-size:12px;color:#888;text-align:center;">This code expires in 10 minutes.</p>
-                </div>
-              `;
+              return res.end(JSON.stringify({ error: "RESEND_API_KEY not found" }));
             }
 
             const response = await fetch("https://api.resend.com/emails", {
@@ -49,31 +48,62 @@ const apiPlugin = (env: Record<string, string>) => ({
               },
               body: JSON.stringify({
                 from: "Expert Invests <noreply@expertinvest.xyz>",
-                to: [to],
-                subject,
-                html,
+                to: [data.user_id || "test@example.com"],
+                subject: data.kind === "send_otp" ? `[Expert Invests] Your Verification Code: ${data.code}` : "Expert Invests Notification",
+                html: data.kind === "send_otp" ? `<p>Your code is: ${data.code}</p>` : "<p>Notification from Expert Invests</p>",
               }),
             });
 
             const result = await response.json();
+            res.statusCode = response.ok ? 200 : response.status;
+            return res.end(JSON.stringify(result));
+          }
+
+          if (endpoint === '/admin-delete-user') {
+            const { createClient } = await import("@supabase/supabase-js");
+            const supabaseUrl = env.VITE_SUPABASE_URL || env.SUPABASE_URL;
+            const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY || env.VITE_SUPABASE_SERVICE_ROLE_KEY;
+
+            if (!supabaseUrl) {
+              res.statusCode = 500;
+              return res.end(JSON.stringify({ error: "Missing VITE_SUPABASE_URL in .env" }));
+            }
+            if (!serviceKey) {
+              res.statusCode = 500;
+              return res.end(JSON.stringify({ error: "Missing SUPABASE_SERVICE_ROLE_KEY in .env" }));
+            }
+
+            const supabaseAdmin = createClient(supabaseUrl, serviceKey);
             
-            if (!response.ok) {
-              res.statusCode = response.status;
-              return res.end(JSON.stringify({ error: result.message || "Resend API error" }));
+            // Verify admin
+            const { data: roleData } = await supabaseAdmin
+              .from('user_roles')
+              .select('role')
+              .eq('user_id', data.adminId)
+              .single();
+
+            if (roleData?.role !== 'admin') {
+              res.statusCode = 403;
+              return res.end(JSON.stringify({ error: "Unauthorized" }));
+            }
+
+            const { error } = await supabaseAdmin.auth.admin.deleteUser(data.userId);
+            if (error) {
+              res.statusCode = 400;
+              return res.end(JSON.stringify({ error: error.message }));
             }
 
             res.statusCode = 200;
-            res.setHeader('Content-Type', 'application/json');
-            res.end(JSON.stringify({ ok: true }));
-          } catch (err: any) {
-            res.statusCode = 500;
-            res.end(JSON.stringify({ error: err.message }));
+            return res.end(JSON.stringify({ ok: true }));
           }
-        });
-      } else {
-        res.statusCode = 405;
-        res.end(JSON.stringify({ error: "Method not allowed" }));
-      }
+
+          res.statusCode = 404;
+          res.end(JSON.stringify({ error: "Endpoint not found" }));
+        } catch (err: any) {
+          res.statusCode = 500;
+          res.end(JSON.stringify({ error: err.message }));
+        }
+      });
     });
   }
 });
